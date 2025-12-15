@@ -1,0 +1,9 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Si piden directamente /crm (sin nada más), mandar a public/
+    RewriteRule ^$ public/index.php [L]
+
+    # Para cualquier otra ruta (/crm/lo-que-sea), redirigir a public/lo-que-sea
+    RewriteRule (.*) public/$1 [L]
+</IfModule>
