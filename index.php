@@ -23,9 +23,16 @@ if (preg_match('#^/([^/]+)/#', $requestPath, $matches)) {
 }
 
 // Establecer ASSET_URL para que Laravel genere URLs correctas
-if ($subdirectory && !isset($_ENV['ASSET_URL'])) {
-    $_ENV['ASSET_URL'] = $subdirectory;
-    putenv('ASSET_URL=' . $subdirectory);
+// Esto debe hacerse ANTES de que Laravel bootstrape
+if ($subdirectory) {
+    if (!isset($_ENV['ASSET_URL'])) {
+        $_ENV['ASSET_URL'] = $subdirectory;
+    }
+    if (!getenv('ASSET_URL')) {
+        putenv('ASSET_URL=' . $subdirectory);
+    }
+    // También establecerlo en $_SERVER para que esté disponible inmediatamente
+    $_SERVER['ASSET_URL'] = $subdirectory;
 }
 
 // Remover el prefijo /crm/ si existe para procesamiento interno

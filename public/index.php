@@ -21,10 +21,15 @@ if (preg_match('#^/([^/]+)/#', $requestPath, $matches)) {
     $subdirectory = '/' . $matches[1];
     
     // Establecer ASSET_URL para que Laravel genere URLs correctas
+    // Esto debe hacerse ANTES de que Laravel bootstrape
     if (!isset($_ENV['ASSET_URL'])) {
         $_ENV['ASSET_URL'] = $subdirectory;
+    }
+    if (!getenv('ASSET_URL')) {
         putenv('ASSET_URL=' . $subdirectory);
     }
+    // También establecerlo en $_SERVER para que esté disponible inmediatamente
+    $_SERVER['ASSET_URL'] = $subdirectory;
     
     // Ajustar SCRIPT_NAME para que Laravel detecte el path base correctamente
     if (isset($_SERVER['SCRIPT_NAME'])) {

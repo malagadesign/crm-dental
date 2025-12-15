@@ -33,6 +33,20 @@ class AppServiceProvider extends ServiceProvider
                     config(['app.asset_url' => $subdirectory]);
                 }
                 
+                // Configurar Livewire para usar el prefijo del subdirectorio
+                // Esto se hace después de que Livewire se haya registrado
+                try {
+                    if ($this->app->bound('livewire')) {
+                        // Forzar que Livewire use el prefijo en sus URLs
+                        $assetUrl = env('ASSET_URL', $subdirectory);
+                        if ($assetUrl) {
+                            config(['livewire.asset_url' => $assetUrl]);
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // Si falla, no es crítico
+                }
+                
                 // Forzar que el UrlGenerator use el prefijo para assets
                 // Solo si el servicio ya está disponible
                 try {
