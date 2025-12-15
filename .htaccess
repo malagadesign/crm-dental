@@ -1,10 +1,18 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # Si el archivo o directorio existe, lo sirve directamente
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
+    # Si ya estamos en public/, no hacer nada (evitar loops)
+    RewriteCond %{REQUEST_URI} ^/crm/public/
+    RewriteRule ^ - [L]
 
-    # Todo lo demás va a index.php en la raíz del proyecto
+    # Si el archivo existe en la raíz actual, servirlo directamente
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+
+    # Si el directorio existe en la raíz actual, servirlo directamente
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Todo lo demás va a index.php (que manejará archivos estáticos y rutas de Laravel)
     RewriteRule ^ index.php [L]
 </IfModule>
