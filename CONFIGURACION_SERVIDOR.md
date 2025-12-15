@@ -71,11 +71,34 @@ SESSION_LIFETIME=120
 ### 4. Configuración de Cache
 
 ```env
-CACHE_DRIVER=database
+CACHE_STORE=database
 QUEUE_CONNECTION=database
 ```
 
-### 5. Configuración de Mail (Opcional)
+**Nota:** La aplicación usa `database` para cache y colas, NO usa Redis ni Memcached.
+
+### 5. Configuración de Redis y Memcached (No se usan, pero deben estar configurados)
+
+Aunque la aplicación **NO usa** Redis ni Memcached (usa `database` para todo), estas variables deben estar en el `.env`:
+
+```env
+# Redis (no se usa, pero debe estar configurado)
+REDIS_CLIENT=phpredis
+REDIS_HOST=127.0.0.1
+REDIS_PASSWORD=null
+REDIS_PORT=6379
+
+# Memcached (no se usa, pero debe estar configurado)
+MEMCACHED_HOST=127.0.0.1
+MEMCACHED_PORT=11211
+```
+
+**Importante:**
+- `127.0.0.1` en el servidor de hosting se refiere al **servidor mismo**, no a tu computadora local
+- Si tu hosting no tiene Redis/Memcached instalados, no hay problema porque la app no los usa
+- Estos valores son seguros dejarlos así porque Laravel solo intentará conectarse si cambias `CACHE_STORE` o `SESSION_DRIVER` a `redis` o `memcached`
+
+### 6. Configuración de Mail (Opcional)
 
 ```env
 MAIL_MAILER=smtp
