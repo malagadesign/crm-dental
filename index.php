@@ -39,31 +39,48 @@ if ($subdirectory) {
 $requestPath = preg_replace('#^/crm/#', '/', $requestPath);
 $requestPath = ltrim($requestPath, '/');
 
-// Si es un archivo estático que existe en public/, servirlo directamente
-if ($requestPath && $requestPath !== '' && $requestPath !== 'index.php') {
-    $publicPath = __DIR__ . '/public/' . $requestPath;
-    
-    if (file_exists($publicPath) && is_file($publicPath)) {
-        // Determinar el tipo MIME
-        $mimeType = @mime_content_type($publicPath);
-        if (!$mimeType) {
-            $extension = pathinfo($publicPath, PATHINFO_EXTENSION);
-            $mimeTypes = [
-                'css' => 'text/css',
-                'js' => 'application/javascript',
-                'png' => 'image/png',
-                'jpg' => 'image/jpeg',
-                'jpeg' => 'image/jpeg',
-                'gif' => 'image/gif',
-                'svg' => 'image/svg+xml',
-                'ico' => 'image/x-icon',
-            ];
-            $mimeType = $mimeTypes[$extension] ?? 'application/octet-stream';
-        }
+// Manejar rutas especiales de Vite (cuando está en modo desarrollo)
+// Estas rutas tienen query strings como ?id=xxx
+if (empty($requestPath) || $requestPath === '') {
+    // Si la ruta está vacía pero hay query string, puede ser una ruta de Vite
+    // En este caso, dejar que Laravel lo maneje
+} else {
+    // Si es un archivo estático que existe en public/, servirlo directamente
+    if ($requestPath !== 'index.php') {
+        $publicPath = __DIR__ . '/public/' . $requestPath;
         
-        header('Content-Type: ' . $mimeType);
-        readfile($publicPath);
-        exit;
+        // Verificar si es un archivo o directorio
+        if (file_exists($publicPath)) {
+            if (is_file($publicPath)) {
+                // Determinar el tipo MIME
+                $mimeType = @mime_content_type($publicPath);
+                if (!$mimeType) {
+                    $extension = pathinfo($publicPath, PATHINFO_EXTENSION);
+                    $mimeTypes = [
+                        'css' => 'text/css',
+                        'js' => 'application/javascript',
+                        'json' => 'application/json',
+                        'png' => 'image/png',
+                        'jpg' => 'image/jpeg',
+                        'jpeg' => 'image/jpeg',
+                        'gif' => 'image/gif',
+                        'svg' => 'image/svg+xml',
+                        'ico' => 'image/x-icon',
+                        'woff' => 'font/woff',
+                        'woff2' => 'font/woff2',
+                        'ttf' => 'font/ttf',
+                        'eot' => 'application/vnd.ms-fontobject',
+                    ];
+                    $mimeType = $mimeTypes[$extension] ?? 'application/octet-stream';
+                }
+                
+                header('Content-Type: ' . $mimeType);
+                readfile($publicPath);
+                exit;
+            } elseif (is_dir($publicPath)) {
+                // Si es un directorio, dejar que Laravel lo maneje
+            }
+        }
     }
 }
 
