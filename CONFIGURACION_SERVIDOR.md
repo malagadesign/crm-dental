@@ -14,9 +14,12 @@ APP_URL=https://agoradental.com.ar/crm
 
 **Importante:** 
 - `APP_KEY`: Debe generarse con `php artisan key:generate` en el servidor
-- `APP_DEBUG`: Debe ser `false` en producción
+- `APP_DEBUG`: Debe ser `false` en producción (o `true` temporalmente para debugging)
 - `APP_URL`: Debe incluir el prefijo `/crm` (ej: `https://agoradental.com.ar/crm`)
-- `ASSET_URL`: Se detecta automáticamente, pero si los assets no cargan, agregá `ASSET_URL=/crm` al `.env`
+- `ASSET_URL`: **CRÍTICO** - Debe ser `/crm` para que los assets (CSS, JS, Livewire) se carguen correctamente. Agregá esta línea al `.env`:
+  ```env
+  ASSET_URL=/crm
+  ```
 
 ### 2. Configuración de Base de Datos (CRÍTICO)
 
