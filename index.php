@@ -7,6 +7,12 @@
  * o carga el index.php original de Laravel si no existen.
  */
 
+// Habilitar errores para debugging (remover en producción si es necesario)
+if (getenv('APP_DEBUG') === 'true' || (isset($_GET['debug']) && $_GET['debug'] === '1')) {
+    error_reporting(E_ALL);
+    ini_set('display_errors', 1);
+}
+
 $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
 $requestPath = parse_url($requestUri, PHP_URL_PATH);
 
@@ -32,7 +38,7 @@ if ($requestPath && $requestPath !== '' && $requestPath !== 'index.php') {
     
     if (file_exists($publicPath) && is_file($publicPath)) {
         // Determinar el tipo MIME
-        $mimeType = mime_content_type($publicPath);
+        $mimeType = @mime_content_type($publicPath);
         if (!$mimeType) {
             $extension = pathinfo($publicPath, PATHINFO_EXTENSION);
             $mimeTypes = [
@@ -60,4 +66,24 @@ if ($subdirectory && isset($_SERVER['SCRIPT_NAME'])) {
 }
 
 // Si no es un archivo estático, cargar Laravel
-require __DIR__ . '/public/index.php';
+try {
+    require __DIR__ . '/public/index.php';
+} catch (\Throwable $e) {
+    // Si hay un error fatal, mostrar información útil
+    http_response_code(500);
+    header('Content-Type: text/html; charset=utf-8');
+    echo "<!DOCTYPE html><html><head><title>Error 500</title></head><body>";
+    echo "<h1>Error 500 - Error del Servidor</h1>";
+    if (getenv('APP_DEBUG') === 'true' || (isset($_GET['debug']) && $_GET['debug'] === '1')) {
+        echo "<h2>Detalles del Error:</h2>";
+        echo "<p><strong>Mensaje:</strong> " . htmlspecialchars($e->getMessage()) . "</p>";
+        echo "<p><strong>Archivo:</strong> " . htmlspecialchars($e->getFile()) . "</p>";
+        echo "<p><strong>Línea:</strong> " . $e->getLine() . "</p>";
+        echo "<pre>" . htmlspecialchars($e->getTraceAsString()) . "</pre>";
+    } else {
+        echo "<p>Ha ocurrido un error. Por favor, contactá al administrador.</p>";
+        echo "<p>Para ver detalles del error, agregá <code>?debug=1</code> a la URL.</p>";
+    }
+    echo "</body></html>";
+    exit(1);
+}
