@@ -4,8 +4,9 @@ use App\Http\Controllers\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
-});
+    // En producción queremos que /crm/ lleve directo al panel del CRM (Filament)
+    return redirect('/admin');
+})->name('home');
 
 // Webhook de WhatsApp Business API
 Route::get('/webhook/whatsapp', [WhatsAppWebhookController::class, 'verify']);
