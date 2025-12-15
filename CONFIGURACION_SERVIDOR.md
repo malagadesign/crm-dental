@@ -15,7 +15,8 @@ APP_URL=https://agoradental.com.ar/crm
 **Importante:** 
 - `APP_KEY`: Debe generarse con `php artisan key:generate` en el servidor
 - `APP_DEBUG`: Debe ser `false` en producción
-- `APP_URL`: Debe incluir el prefijo `/crm`
+- `APP_URL`: Debe incluir el prefijo `/crm` (ej: `https://agoradental.com.ar/crm`)
+- `ASSET_URL`: Se detecta automáticamente, pero si los assets no cargan, agregá `ASSET_URL=/crm` al `.env`
 
 ### 2. Configuración de Base de Datos (CRÍTICO)
 

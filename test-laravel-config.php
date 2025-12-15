@@ -10,14 +10,19 @@
 
 require __DIR__ . '/vendor/autoload.php';
 
+// Bootstrap Laravel correctamente
 $app = require_once __DIR__ . '/bootstrap/app.php';
+
+// Bootstrapear la aplicación para que todos los servicios estén disponibles
+$kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
 echo "<h2>Prueba de Configuración de Laravel</h2>";
 echo "<hr>";
 
 try {
-    // Obtener configuración de base de datos
-    $config = $app->make('config');
+    // Obtener configuración de base de datos usando el helper config()
+    $config = app('config');
     
     echo "<h3>1. Configuración de Base de Datos desde Laravel:</h3>";
     echo "<ul>";

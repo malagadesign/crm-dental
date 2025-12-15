@@ -10,7 +10,19 @@
 $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
 $requestPath = parse_url($requestUri, PHP_URL_PATH);
 
-// Remover el prefijo /crm/ si existe
+// Detectar si estamos en un subdirectorio (/crm/)
+$subdirectory = '';
+if (preg_match('#^/([^/]+)/#', $requestPath, $matches)) {
+    $subdirectory = '/' . $matches[1];
+}
+
+// Establecer ASSET_URL para que Laravel genere URLs correctas
+if ($subdirectory && !isset($_ENV['ASSET_URL'])) {
+    $_ENV['ASSET_URL'] = $subdirectory;
+    putenv('ASSET_URL=' . $subdirectory);
+}
+
+// Remover el prefijo /crm/ si existe para procesamiento interno
 $requestPath = preg_replace('#^/crm/#', '/', $requestPath);
 $requestPath = ltrim($requestPath, '/');
 
@@ -40,6 +52,11 @@ if ($requestPath && $requestPath !== '' && $requestPath !== 'index.php') {
         readfile($publicPath);
         exit;
     }
+}
+
+// Modificar SCRIPT_NAME para que Laravel detecte el subdirectorio correctamente
+if ($subdirectory && isset($_SERVER['SCRIPT_NAME'])) {
+    $_SERVER['SCRIPT_NAME'] = $subdirectory . '/index.php';
 }
 
 // Si no es un archivo estático, cargar Laravel
