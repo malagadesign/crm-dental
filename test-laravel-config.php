@@ -8,21 +8,30 @@
  * IMPORTANTE: Eliminar este archivo después de verificar.
  */
 
+// Habilitar mostrar errores para debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 require __DIR__ . '/vendor/autoload.php';
 
-// Bootstrap Laravel correctamente
+// Bootstrap Laravel de manera simple
 $app = require_once __DIR__ . '/bootstrap/app.php';
 
-// Bootstrapear la aplicación para que todos los servicios estén disponibles
-$kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
-$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+// Bootstrapear solo el Console Kernel (más simple y seguro)
+try {
+    $consoleKernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+    $consoleKernel->bootstrap();
+} catch (\Exception $e) {
+    // Si falla el bootstrap, intentar de otra manera
+    $app->make('config');
+}
 
 echo "<h2>Prueba de Configuración de Laravel</h2>";
 echo "<hr>";
 
 try {
-    // Obtener configuración de base de datos usando el helper config()
-    $config = app('config');
+    // Obtener configuración de base de datos
+    $config = $app->make('config');
     
     echo "<h3>1. Configuración de Base de Datos desde Laravel:</h3>";
     echo "<ul>";
@@ -97,8 +106,19 @@ try {
 } catch (\Exception $e) {
     echo "<div style='background: #fee; padding: 15px; border: 2px solid #f00; border-radius: 5px;'>";
     echo "<h3 style='color: #c00;'>❌ Error</h3>";
-    echo "<p><strong>Mensaje:</strong> " . $e->getMessage() . "</p>";
-    echo "<p><strong>Archivo:</strong> " . $e->getFile() . "</p>";
+    echo "<p><strong>Mensaje:</strong> " . htmlspecialchars($e->getMessage()) . "</p>";
+    echo "<p><strong>Archivo:</strong> " . htmlspecialchars($e->getFile()) . "</p>";
+    echo "<p><strong>Línea:</strong> " . $e->getLine() . "</p>";
+    if ($e->getPrevious()) {
+        echo "<p><strong>Error anterior:</strong> " . htmlspecialchars($e->getPrevious()->getMessage()) . "</p>";
+    }
+    echo "<pre style='background: #fdd; padding: 10px; overflow: auto;'>" . htmlspecialchars($e->getTraceAsString()) . "</pre>";
+    echo "</div>";
+} catch (\Error $e) {
+    echo "<div style='background: #fee; padding: 15px; border: 2px solid #f00; border-radius: 5px;'>";
+    echo "<h3 style='color: #c00;'>❌ Error Fatal</h3>";
+    echo "<p><strong>Mensaje:</strong> " . htmlspecialchars($e->getMessage()) . "</p>";
+    echo "<p><strong>Archivo:</strong> " . htmlspecialchars($e->getFile()) . "</p>";
     echo "<p><strong>Línea:</strong> " . $e->getLine() . "</p>";
     echo "</div>";
 }
