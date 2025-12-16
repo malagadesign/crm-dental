@@ -52,7 +52,8 @@ class AppServiceProvider extends ServiceProvider
                 try {
                     if ($this->app->bound('url')) {
                         $urlGenerator = $this->app->make('url');
-                        // Usar config('app.url') directamente, que es más seguro
+                        // Usar config('app.url') directamente, que es compatible con Laravel 11
+                        // getRootUrl() no existe en Laravel 11
                         $root = config('app.url', '');
                         if ($root && !str_ends_with($root, $subdirectory)) {
                             $urlGenerator->forceRootUrl($root . $subdirectory);
