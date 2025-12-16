@@ -35,6 +35,25 @@ if (preg_match('#^/([^/]+)/#', $requestPath, $matches)) {
     if (isset($_SERVER['SCRIPT_NAME'])) {
         $_SERVER['SCRIPT_NAME'] = $subdirectory . '/index.php';
     }
+    
+    // Ajustar PATH_INFO para remover el subdirectorio
+    // Esto es crítico para que las rutas funcionen correctamente
+    if (isset($_SERVER['PATH_INFO'])) {
+        $pathInfo = $_SERVER['PATH_INFO'];
+        if (strpos($pathInfo, $subdirectory) === 0) {
+            $_SERVER['PATH_INFO'] = substr($pathInfo, strlen($subdirectory));
+            if (empty($_SERVER['PATH_INFO'])) {
+                $_SERVER['PATH_INFO'] = '/';
+            }
+        }
+    } else {
+        // Si no hay PATH_INFO, extraerlo de REQUEST_URI
+        $pathWithoutSubdir = substr($requestPath, strlen($subdirectory));
+        if ($pathWithoutSubdir === '') {
+            $pathWithoutSubdir = '/';
+        }
+        $_SERVER['PATH_INFO'] = $pathWithoutSubdir;
+    }
 }
 
 // Bootstrap Laravel and handle the request...
