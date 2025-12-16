@@ -5,6 +5,15 @@
     RewriteCond %{REQUEST_URI} ^/crm/public/
     RewriteRule ^ - [L]
 
+    # Servir archivos estáticos desde public/ si existen ahí
+    # Extraer la ruta después de /crm/ y verificar si existe en public/
+    RewriteCond %{REQUEST_URI} ^/crm/(.+)$
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond public/%1 -f [OR]
+    RewriteCond public/%1 -d
+    RewriteRule ^.*$ public/%1 [L]
+
     # Si el archivo existe en la raíz actual, servirlo directamente
     RewriteCond %{REQUEST_FILENAME} -f
     RewriteRule ^ - [L]
@@ -13,6 +22,6 @@
     RewriteCond %{REQUEST_FILENAME} -d
     RewriteRule ^ - [L]
 
-    # Todo lo demás va a index.php (que manejará archivos estáticos y rutas de Laravel)
-    RewriteRule ^ index.php [L]
+    # Todo lo demás va a public/index.php (que manejará rutas de Laravel)
+    RewriteRule ^ public/index.php [L]
 </IfModule>
