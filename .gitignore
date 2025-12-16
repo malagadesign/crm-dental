@@ -1,6 +1,6 @@
 /.phpunit.cache
 /node_modules
-/public/build
+# /public/build  # Comentado para permitir subir assets compilados al servidor (sin SSH)
 /public/hot
 /public/storage
 /storage/*.key

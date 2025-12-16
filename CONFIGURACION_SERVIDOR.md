@@ -115,10 +115,57 @@ MAIL_FROM_ADDRESS=tu_email@agoradental.com.ar
 MAIL_FROM_NAME="${APP_NAME}"
 ```
 
+## Compilación de Assets (CSS/JS) - CRÍTICO
+
+**Los estilos y JavaScript NO funcionarán si los assets no están compilados.**
+
+### Opción 1: Compilar en el Servidor (Recomendado)
+
+Si tenés acceso SSH al servidor:
+
+```bash
+cd /public_html/crm
+
+# Instalar dependencias de Node.js (solo primera vez)
+npm install
+
+# Compilar assets para producción
+npm run build
+
+# Limpiar cache de Laravel
+php artisan config:clear
+php artisan cache:clear
+```
+
+### Opción 2: Compilar Localmente y Subir
+
+Si no tenés acceso SSH, compilá localmente y subí la carpeta `public/build/`:
+
+```bash
+# En tu máquina local
+cd /ruta/a/crm-dental
+npm install
+npm run build
+
+# Esto creará la carpeta public/build/ con los assets compilados
+# Subí toda la carpeta public/build/ al servidor vía FTP
+```
+
+**Importante:** La carpeta `public/build/` debe estar en `/public_html/crm/public/build/` en el servidor.
+
+### Verificar que los Assets Están Compilados
+
+Después de compilar, deberías ver:
+- `/public/build/manifest.json` (archivo de configuración de Vite)
+- `/public/build/assets/*.js` (archivos JavaScript compilados)
+- `/public/build/assets/*.css` (archivos CSS compilados)
+
 ## Checklist de Configuración
 
 - [ ] Archivo `.env` creado en `/public_html/crm/.env`
 - [ ] `APP_KEY` generado con `php artisan key:generate`
+- [ ] `ASSET_URL=/crm` configurado en `.env` (CRÍTICO para que carguen los estilos)
+- [ ] Assets compilados (`npm run build` ejecutado y carpeta `public/build/` existe)
 - [ ] Base de datos MySQL creada
 - [ ] Usuario MySQL creado y con permisos
 - [ ] Variables `DB_*` configuradas correctamente en `.env`
@@ -150,6 +197,25 @@ MAIL_FROM_NAME="${APP_NAME}"
 
 - Verificá que el nombre de la base de datos en `.env` es exactamente el mismo que creaste
 - Algunos hostings agregan un prefijo al nombre (ej: `usuario_nombredb`)
+
+### Error: Los estilos no cargan / Página sin CSS
+
+**Síntomas:**
+- La página de login se ve sin estilos
+- Error en consola: `Uncaught SyntaxError: Unexpected token '<'`
+- Error 404 al intentar cargar archivos `.js` o `.css`
+
+**Causas posibles:**
+1. Los assets no están compilados (falta la carpeta `public/build/`)
+2. `ASSET_URL` no está configurado en el `.env`
+3. La carpeta `public/build/` no se subió al servidor
+
+**Solución:**
+1. Verificá que `ASSET_URL=/crm` está en el `.env` del servidor
+2. Compilá los assets (ver sección "Compilación de Assets" arriba)
+3. Verificá que la carpeta `public/build/` existe en el servidor
+4. Limpiá el cache: `php artisan config:clear && php artisan cache:clear`
+5. Verificá los permisos de la carpeta `public/build/` (debe ser 755)
 
 ## Notas Importantes
 
