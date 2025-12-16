@@ -62,6 +62,12 @@ if (preg_match('#^/([^/]+)/#', $requestPath, $matches)) {
     }
 }
 
-// Bootstrap Laravel and handle the request...
-(require_once __DIR__.'/../bootstrap/app.php')
-    ->handleRequest(Request::capture());
+// Bootstrap Laravel
+$app = require_once __DIR__.'/../bootstrap/app.php';
+
+// Crear el Request usando la URI ajustada
+// Request::capture() usa $_SERVER['REQUEST_URI'], que ya ajustamos arriba
+$request = Request::capture();
+
+// Manejar el request
+$app->handleRequest($request);
