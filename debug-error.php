@@ -44,9 +44,7 @@ try {
     echo "<hr>";
     echo "<h3>3. Intentando capturar request...</h3>";
     
-    use Illuminate\Http\Request;
-    
-    $request = Request::capture();
+    $request = \Illuminate\Http\Request::capture();
     echo "✅ Request capturado<br>";
     echo "URI: " . $request->getRequestUri() . "<br>";
     echo "Path: " . $request->getPathInfo() . "<br>";
