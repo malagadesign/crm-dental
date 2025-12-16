@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Filesystem\Filesystem;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -12,7 +13,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Registrar el servicio 'files' que Laravel necesita
+        // Esto es necesario porque Laravel intenta acceder a él durante el boot
+        // antes de que el FilesystemServiceProvider se registre
+        $this->app->singleton('files', function () {
+            return new Filesystem();
+        });
     }
 
     /**
