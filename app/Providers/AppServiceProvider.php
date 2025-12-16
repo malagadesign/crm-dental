@@ -52,7 +52,8 @@ class AppServiceProvider extends ServiceProvider
                 try {
                     if ($this->app->bound('url')) {
                         $urlGenerator = $this->app->make('url');
-                        $root = $urlGenerator->getRootUrl();
+                        // Usar config('app.url') directamente, que es más seguro
+                        $root = config('app.url', '');
                         if ($root && !str_ends_with($root, $subdirectory)) {
                             $urlGenerator->forceRootUrl($root . $subdirectory);
                         }
