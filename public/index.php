@@ -36,8 +36,18 @@ if (preg_match('#^/([^/]+)/#', $requestPath, $matches)) {
         $_SERVER['SCRIPT_NAME'] = $subdirectory . '/index.php';
     }
     
-    // Ajustar PATH_INFO para remover el subdirectorio
+    // Ajustar REQUEST_URI para remover el subdirectorio ANTES de que Laravel lo procese
     // Esto es crítico para que las rutas funcionen correctamente
+    if (strpos($requestPath, $subdirectory) === 0) {
+        $pathWithoutSubdir = substr($requestPath, strlen($subdirectory));
+        if ($pathWithoutSubdir === '') {
+            $pathWithoutSubdir = '/';
+        }
+        $_SERVER['REQUEST_URI'] = $pathWithoutSubdir . 
+            (isset($_SERVER['QUERY_STRING']) && $_SERVER['QUERY_STRING'] ? '?' . $_SERVER['QUERY_STRING'] : '');
+    }
+    
+    // Ajustar PATH_INFO para remover el subdirectorio
     if (isset($_SERVER['PATH_INFO'])) {
         $pathInfo = $_SERVER['PATH_INFO'];
         if (strpos($pathInfo, $subdirectory) === 0) {
@@ -47,12 +57,8 @@ if (preg_match('#^/([^/]+)/#', $requestPath, $matches)) {
             }
         }
     } else {
-        // Si no hay PATH_INFO, extraerlo de REQUEST_URI
-        $pathWithoutSubdir = substr($requestPath, strlen($subdirectory));
-        if ($pathWithoutSubdir === '') {
-            $pathWithoutSubdir = '/';
-        }
-        $_SERVER['PATH_INFO'] = $pathWithoutSubdir;
+        // Si no hay PATH_INFO, usar el REQUEST_URI ajustado
+        $_SERVER['PATH_INFO'] = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
     }
 }
 
