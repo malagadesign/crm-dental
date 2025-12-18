@@ -31,13 +31,21 @@ if (preg_match('#^/([^/]+)/#', $requestPath, $matches)) {
     // También establecerlo en $_SERVER para que esté disponible inmediatamente
     $_SERVER['ASSET_URL'] = $subdirectory;
     
+    // Guardar el REQUEST_URI original para usarlo después
+    $originalRequestUri = $_SERVER['REQUEST_URI'];
+    
     // Ajustar SCRIPT_NAME para que Laravel detecte el path base correctamente
     if (isset($_SERVER['SCRIPT_NAME'])) {
         $_SERVER['SCRIPT_NAME'] = $subdirectory . '/index.php';
     }
-    
-    // Ajustar REQUEST_URI para remover el subdirectorio ANTES de que Laravel lo procese
-    // Esto es crítico para que las rutas funcionen correctamente
+}
+
+// Bootstrap Laravel PRIMERO (sin ajustar REQUEST_URI para que Filament registre rutas correctamente)
+$app = require_once __DIR__.'/../bootstrap/app.php';
+
+// AHORA ajustar REQUEST_URI solo para el request actual (después de que las rutas se registren)
+if ($subdirectory && isset($originalRequestUri)) {
+    $requestPath = parse_url($originalRequestUri, PHP_URL_PATH);
     if (strpos($requestPath, $subdirectory) === 0) {
         $pathWithoutSubdir = substr($requestPath, strlen($subdirectory));
         if ($pathWithoutSubdir === '') {
@@ -47,7 +55,7 @@ if (preg_match('#^/([^/]+)/#', $requestPath, $matches)) {
             (isset($_SERVER['QUERY_STRING']) && $_SERVER['QUERY_STRING'] ? '?' . $_SERVER['QUERY_STRING'] : '');
     }
     
-    // Ajustar PATH_INFO para remover el subdirectorio
+    // Ajustar PATH_INFO
     if (isset($_SERVER['PATH_INFO'])) {
         $pathInfo = $_SERVER['PATH_INFO'];
         if (strpos($pathInfo, $subdirectory) === 0) {
@@ -57,16 +65,11 @@ if (preg_match('#^/([^/]+)/#', $requestPath, $matches)) {
             }
         }
     } else {
-        // Si no hay PATH_INFO, usar el REQUEST_URI ajustado
         $_SERVER['PATH_INFO'] = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
     }
 }
 
-// Bootstrap Laravel
-$app = require_once __DIR__.'/../bootstrap/app.php';
-
 // Crear el Request usando la URI ajustada
-// Request::capture() usa $_SERVER['REQUEST_URI'], que ya ajustamos arriba
 $request = Request::capture();
 
 // Manejar el request
