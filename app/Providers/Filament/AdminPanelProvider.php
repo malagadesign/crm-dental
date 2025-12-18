@@ -28,6 +28,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->domain(null) // Asegurar que no hay restricción de dominio
             ->brandName('CRM Dental')
             ->colors([
                 'primary' => Color::Blue,
