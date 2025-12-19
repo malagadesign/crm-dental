@@ -5,7 +5,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     // En producción queremos que /crm/ lleve directo al login del CRM (Filament)
-    return redirect('/admin/login');
+    return redirect()->to(url('admin/login'));
+    //return redirect('/admin/login');
 })->name('home');
 
 // Webhook de WhatsApp Business API
