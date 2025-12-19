@@ -38,5 +38,13 @@ class AppServiceProvider extends ServiceProvider
                 config(['app.asset_url' => $subdirectory]);
             }
         }
+        
+        // Asegurar que el REQUEST_URI esté limpio durante el registro de rutas
+        // Esto es crítico para que Filament registre correctamente las rutas POST
+        if (isset($_SERVER['ORIGINAL_REQUEST_URI'])) {
+            // Si hay un REQUEST_URI original guardado, restaurarlo temporalmente
+            // solo para el contexto actual, pero mantener limpio para el registro de rutas
+            $_SERVER['REQUEST_URI'] = $_SERVER['ORIGINAL_REQUEST_URI'];
+        }
     }
 }
