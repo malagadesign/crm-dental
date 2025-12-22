@@ -18,7 +18,11 @@ $requestPath = parse_url($requestUri, PHP_URL_PATH);
 $subdirectory = '';
 
 // Detectar subdirectorio desde el path
+// Buscar el primer segmento después de la raíz
 if (preg_match('#^/([^/]+)/#', $requestPath, $matches)) {
+    $subdirectory = '/' . $matches[1];
+} elseif (preg_match('#^/([^/]+)$#', $requestPath, $matches)) {
+    // También detectar si el path es exactamente /crm (sin barra final)
     $subdirectory = '/' . $matches[1];
 }
 

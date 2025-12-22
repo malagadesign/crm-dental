@@ -26,25 +26,46 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // La configuración del subdirectorio se maneja en public/index.php
-        // para evitar interferir con el registro de rutas de Filament
-        // Solo establecer ASSET_URL si no está configurado
-        if (!env('ASSET_URL')) {
+        // Detectar subdirectorio y configurar URLs correctamente
+        $subdirectory = '';
+        
+        // Intentar obtener el subdirectorio desde ASSET_URL si está configurado
+        $assetUrl = env('ASSET_URL');
+        if ($assetUrl && strpos($assetUrl, '/') === 0) {
+            $subdirectory = $assetUrl;
+        } else {
+            // Si no está en env, intentar detectarlo desde REQUEST_URI
             $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
             $requestPath = parse_url($requestUri, PHP_URL_PATH);
             
             if (preg_match('#^/([^/]+)/#', $requestPath, $matches)) {
                 $subdirectory = '/' . $matches[1];
-                config(['app.asset_url' => $subdirectory]);
             }
         }
         
-        // Asegurar que el REQUEST_URI esté limpio durante el registro de rutas
-        // Esto es crítico para que Filament registre correctamente las rutas POST
-        if (isset($_SERVER['ORIGINAL_REQUEST_URI'])) {
-            // Si hay un REQUEST_URI original guardado, restaurarlo temporalmente
-            // solo para el contexto actual, pero mantener limpio para el registro de rutas
-            $_SERVER['REQUEST_URI'] = $_SERVER['ORIGINAL_REQUEST_URI'];
+        // Si detectamos un subdirectorio, configurar las URLs correctamente
+        if ($subdirectory) {
+            // Configurar ASSET_URL si no está configurado
+            if (!env('ASSET_URL')) {
+                config(['app.asset_url' => $subdirectory]);
+            }
+            
+            // Configurar APP_URL para que url() helper funcione correctamente
+            $currentAppUrl = config('app.url');
+            $appUrl = env('APP_URL');
+            
+            // Si APP_URL no incluye el subdirectorio, agregarlo
+            if ($appUrl && strpos($appUrl, $subdirectory) === false) {
+                // Asegurar que APP_URL termine con el subdirectorio
+                $appUrl = rtrim($appUrl, '/') . $subdirectory;
+                config(['app.url' => $appUrl]);
+            } elseif (!$appUrl) {
+                // Si no hay APP_URL configurado, construir uno desde el request
+                $scheme = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+                $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+                $appUrl = $scheme . '://' . $host . $subdirectory;
+                config(['app.url' => $appUrl]);
+            }
         }
     }
 }
