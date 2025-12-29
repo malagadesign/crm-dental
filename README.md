@@ -1,178 +1,150 @@
-# CRM Dental
+# CRM Dental - Sistema de Gestión de Consultorios Dentales
 
-Sistema de gestión para consultorios dentales desarrollado con Laravel 11 y FilamentPHP.
+Sistema completo de gestión para consultorios dentales desarrollado con Next.js, TypeScript, Prisma y MySQL.
 
-## Características
+## 🚀 Características
 
-- ✅ **Gestión de Pacientes**: CRUD completo con historial clínico
-- ✅ **Historia Clínica**: Sistema de notas de evolución por fecha con archivos adjuntos
-- ✅ **Gestión de Consultorios**: Soporte para múltiples consultorios
-- ✅ **Sistema de Turnos**: Agenda con validación de solapamientos
-- ✅ **Catálogo de Tratamientos**: Precios y duraciones configurables
-- ✅ **Gestión de Leads**: Seguimiento de leads desde Instagram y otras fuentes
+- **Gestión de Pacientes**: Registro completo con DNI, contacto, historial médico
+- **Sistema de Turnos**: Calendario visual con vistas mensual, semanal y diaria
+- **Historia Clínica**: Registro de evolución y archivos adjuntos
+- **Gestión de Leads**: Seguimiento de leads desde diferentes fuentes
+- **Multi-Consultorio**: Soporte para múltiples consultorios
+- **Catálogo de Tratamientos**: Gestión de tratamientos con precios y duraciones
+- **Unificación de Duplicados**: Herramienta para detectar y unificar pacientes duplicados
 
-## Requisitos
+## 🛠️ Tecnologías
 
-- PHP >= 8.2
-- Composer
-- MySQL >= 5.7 o MariaDB >= 10.3
-- Node.js y NPM (para compilar assets si es necesario)
+- **Framework**: Next.js 14
+- **Lenguaje**: TypeScript
+- **Base de Datos**: MySQL (Prisma ORM)
+- **Autenticación**: NextAuth.js
+- **UI**: Tailwind CSS + Radix UI
+- **Calendario**: FullCalendar
+- **Estado**: TanStack Query (React Query)
 
-## Instalación
+## 📋 Requisitos Previos
 
-1. **Clonar el repositorio o descargar el proyecto**
+- Node.js 18+ 
+- pnpm (o npm/yarn)
+- MySQL 8.0+
+- Cuenta de Vercel (para deployment)
 
-2. **Instalar dependencias:**
-   ```bash
-   composer install
-   ```
+## 🔧 Instalación
 
-3. **Configurar el archivo .env:**
-   ```bash
-   cp .env.example .env
-   php artisan key:generate
-   ```
-
-4. **Configurar la base de datos en `.env`:**
-   ```env
-   DB_CONNECTION=mysql
-   DB_HOST=127.0.0.1
-   DB_PORT=3306
-   DB_DATABASE=crm_dental
-   DB_USERNAME=tu_usuario
-   DB_PASSWORD=tu_contraseña
-   ```
-
-5. **Ejecutar migraciones y seeders:**
-   ```bash
-   php artisan migrate --seed
-   ```
-
-6. **Iniciar el servidor de desarrollo:**
-   ```bash
-   php artisan serve
-   ```
-
-7. **Acceder al panel de administración:**
-   - URL: `http://localhost:8000/admin`
-   - Email: `admin@example.com`
-   - Contraseña: `password`
-
-## Estructura de la Base de Datos
-
-### Tablas Principales:
-
-- **users**: Usuarios del sistema (odontólogos, asistentes)
-- **clinics**: Consultorios
-- **patients**: Pacientes
-- **appointments**: Turnos/agendas
-- **treatments**: Catálogo de tratamientos
-- **medical_records**: Historia clínica de pacientes
-- **leads**: Leads captados desde Instagram u otras fuentes
-
-## Funcionalidades Principales
-
-### Gestión de Pacientes
-- Crear, editar y eliminar pacientes
-- Campos: Nombre, DNI, teléfono, email, dirección, origen (Instagram, Recomendación, Google, etc.)
-- Acceso directo a la historia clínica desde la vista del paciente
-
-### Historia Clínica
-- Agregar notas de evolución por fecha
-- Editor de texto enriquecido
-- Subir archivos adjuntos (imágenes, PDFs)
-- Filtros por rango de fechas
-
-### Sistema de Turnos
-- Crear turnos asociados a paciente, consultorio, tratamiento y odontólogo
-- **Validación automática**: Previene que un odontólogo tenga turnos solapados en diferentes consultorios
-- Estados: Confirmado, Cancelado, Asistió, No Asistió
-- Filtros por consultorio, odontólogo, estado y rango de fechas
-
-### Gestión de Consultorios
-- Crear y gestionar múltiples consultorios
-- Cada consultorio tiene dirección, teléfono y email
-
-### Catálogo de Tratamientos
-- Definir tratamientos con nombre, descripción, precio y duración
-- La duración se usa automáticamente para calcular la hora de fin del turno
-- Activar/desactivar tratamientos
-
-### Gestión de Leads
-- Seguimiento de leads desde diferentes fuentes
-- Estados: Nuevo, Contactado, Convertido, Descartado
-- Asociar leads convertidos a pacientes
-
-## Próximas Fases
-
-### Fase 2: Agenda Multi-Consultorio ✅ COMPLETADA
-- ✅ Integración con calendario visual (FullCalendar)
-- ✅ Vista de calendario mensual/semanal/diario
-- ✅ Filtro por consultorio
-- ✅ Colores por estado de turno (Confirmado, Cancelado, Asistió, No Asistió)
-- ✅ Click en turno para editar
-
-### Fase 3: Integración con Instagram
-- Landing page pública para captación de leads
-- Formulario optimizado para móviles
-- Endpoint `/agendar` para compartir en la BIO de Instagram
-
-### Fase 4: Odontograma
-- Implementación de odontograma interactivo
-- O solución temporal con subida de archivos
-
-## Desarrollo
-
-### Comandos Útiles
-
+1. **Clonar el repositorio**
 ```bash
-# Crear una nueva migración
-php artisan make:migration nombre_de_la_migracion
-
-# Crear un nuevo modelo
-php artisan make:model NombreModelo
-
-# Crear un recurso Filament
-php artisan make:filament-resource NombreResource --generate
-
-# Limpiar cache
-php artisan cache:clear
-php artisan config:clear
-php artisan route:clear
-php artisan view:clear
+git clone https://github.com/malagadesign/crm-dental.git
+cd crm-dental
 ```
 
-## Despliegue en Producción
+2. **Instalar dependencias**
+```bash
+pnpm install
+```
 
-1. **Configurar el archivo `.env` con datos de producción**
+3. **Configurar variables de entorno**
+```bash
+cp .env.example .env
+```
 
-2. **Optimizar Laravel:**
-   ```bash
-   php artisan config:cache
-   php artisan route:cache
-   php artisan view:cache
-   ```
+Editar `.env` con tus credenciales:
+```env
+DATABASE_URL="mysql://usuario:password@localhost:3306/crm_dental"
+NEXTAUTH_SECRET="tu-secret-key-aqui"
+NEXTAUTH_URL="http://localhost:3000"
+```
 
-3. **Si tienes acceso SSH al servidor:**
-   ```bash
-   git pull
-   composer install --no-dev --optimize-autoloader
-   php artisan migrate --force
-   ```
+4. **Configurar la base de datos**
+```bash
+# Generar cliente de Prisma
+pnpm db:generate
 
-4. **Si solo tienes acceso FTP:**
-   - Subir todos los archivos excepto `node_modules` y `vendor` (si no están en el servidor)
-   - En el servidor, ejecutar `composer install` y `php artisan migrate`
-   - Configurar el `.env` directamente en el servidor
-   - Asegurarse de que la carpeta `public` sea la raíz del dominio
+# Ejecutar migraciones
+pnpm db:migrate
 
-## Seguridad
+# (Opcional) Poblar con datos de ejemplo
+pnpm db:seed
+```
 
-- Cambiar la contraseña por defecto del usuario admin después de la instalación
-- Configurar correctamente `APP_ENV=production` y `APP_DEBUG=false` en producción
-- Asegurar que los permisos de archivos estén configurados correctamente
+5. **Iniciar servidor de desarrollo**
+```bash
+pnpm dev
+```
 
-## Soporte
+La aplicación estará disponible en `http://localhost:3000`
 
-Para más información sobre Laravel: https://laravel.com/docs
-Para más información sobre FilamentPHP: https://filamentphp.com/docs
+## 🚀 Deployment en Vercel
+
+1. **Conectar repositorio a Vercel**
+   - Ve a [Vercel](https://vercel.com)
+   - Importa el repositorio de GitHub
+   - Vercel detectará automáticamente Next.js
+
+2. **Configurar variables de entorno en Vercel**
+   - `DATABASE_URL`: URL de tu base de datos MySQL
+   - `NEXTAUTH_SECRET`: Genera uno con `openssl rand -base64 32`
+   - `NEXTAUTH_URL`: URL de tu aplicación en Vercel
+
+3. **Configurar Build Settings**
+   - Build Command: `pnpm build` (o `npm run build`)
+   - Output Directory: `.next`
+   - Install Command: `pnpm install` (o `npm install`)
+
+4. **Desplegar**
+   - Vercel desplegará automáticamente en cada push a `main`
+
+## 📁 Estructura del Proyecto
+
+```
+├── app/                    # App Router de Next.js
+│   ├── (auth)/            # Rutas de autenticación
+│   ├── (dashboard)/       # Rutas del dashboard
+│   ├── api/               # API Routes
+│   └── globals.css        # Estilos globales
+├── components/            # Componentes React
+│   ├── calendar/         # Componentes del calendario
+│   ├── patients/         # Componentes de pacientes
+│   └── ui/               # Componentes UI base
+├── lib/                   # Utilidades y configuraciones
+├── prisma/                # Schema y seed de Prisma
+├── types/                 # Tipos TypeScript
+└── public/               # Archivos estáticos
+```
+
+## 🔐 Usuario por Defecto
+
+Después de ejecutar el seed, puedes iniciar sesión con:
+- Email: `admin@example.com`
+- Password: `password`
+
+**⚠️ IMPORTANTE**: Cambia estas credenciales en producción.
+
+## 📝 Scripts Disponibles
+
+- `pnpm dev` - Inicia servidor de desarrollo
+- `pnpm build` - Construye para producción
+- `pnpm start` - Inicia servidor de producción
+- `pnpm db:generate` - Genera cliente de Prisma
+- `pnpm db:migrate` - Ejecuta migraciones
+- `pnpm db:seed` - Pobla la base de datos
+- `pnpm db:studio` - Abre Prisma Studio
+
+## 📦 Backup del Proyecto Anterior
+
+El proyecto anterior de Laravel/Filament está archivado en la carpeta `/bck` para referencia.
+
+## 🤝 Contribuir
+
+1. Fork el proyecto
+2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
+3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abre un Pull Request
+
+## 📄 Licencia
+
+Este proyecto es privado y de uso exclusivo.
+
+## 🆘 Soporte
+
+Para problemas o preguntas, contacta al equipo de desarrollo.

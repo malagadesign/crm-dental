@@ -1,0 +1,178 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql" // Usando MySQL con MAMP
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  admin
+  secretary
+}
+
+enum AppointmentStatus {
+  confirmado
+  cancelado
+  asistio
+  no_asistio
+}
+
+enum PatientOrigin {
+  instagram
+  recomendacion
+  google
+  otro
+}
+
+enum LeadOrigin {
+  instagram
+  google
+  facebook
+  recomendacion
+  otro
+}
+
+enum LeadStatus {
+  nuevo
+  contactado
+  convertido
+  descartado
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  password  String
+  role      String   @default("admin") // Laravel usa string, no enum
+  rememberToken String? @map("remember_token")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  appointments   Appointment[]
+  medicalRecords MedicalRecord[]
+
+  @@map("users")
+}
+
+model Clinic {
+  id        Int      @id @default(autoincrement())
+  name      String
+  address   String?  @db.Text
+  phone     String?
+  email     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  appointments Appointment[]
+
+  @@map("clinics")
+}
+
+model Patient {
+  id         Int           @id @default(autoincrement())
+  firstName  String        @map("first_name")
+  lastName   String        @map("last_name")
+  dni        String?       @unique
+  birthDate  DateTime?     @map("birth_date") @db.Date
+  phone      String?
+  email      String?
+  address    String?       @db.Text
+  origin     PatientOrigin @default(otro)
+  notes      String?      @db.Text
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  appointments   Appointment[]
+  medicalRecords MedicalRecord[]
+  leads          Lead[]
+
+  @@map("patients")
+}
+
+model Treatment {
+  id             Int      @id @default(autoincrement())
+  name           String
+  description    String?  @db.Text
+  price          Decimal  @db.Decimal(10, 2)
+  durationMinutes Int     @default(30) @map("duration_minutes")
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  appointments Appointment[]
+
+  @@map("treatments")
+}
+
+model Appointment {
+  id           Int              @id @default(autoincrement())
+  patientId    Int              @map("patient_id")
+  clinicId     Int              @map("clinic_id")
+  treatmentId  Int?             @map("treatment_id")
+  userId       Int?             @map("user_id")
+  datetimeStart DateTime         @map("datetime_start")
+  datetimeEnd   DateTime         @map("datetime_end")
+  status       AppointmentStatus @default(confirmado)
+  notes        String?          @db.Text
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  patient       Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  clinic        Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  treatment     Treatment?     @relation(fields: [treatmentId], references: [id], onDelete: SetNull)
+  user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  medicalRecords MedicalRecord[]
+
+  @@index([userId, datetimeStart, datetimeEnd])
+  @@map("appointments")
+}
+
+model MedicalRecord {
+  id           Int      @id @default(autoincrement())
+  patientId    Int      @map("patient_id")
+  appointmentId Int?    @map("appointment_id")
+  userId       Int?     @map("user_id")
+  recordDate   DateTime @map("record_date") @db.Date
+  notes        String   @db.Text
+  attachments  String?  @db.Text // JSON como string para compatibilidad con MySQL
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  patient     Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("medical_records")
+}
+
+model Lead {
+  id        Int       @id @default(autoincrement())
+  firstName String?   @map("first_name")
+  lastName  String?   @map("last_name")
+  phone     String?
+  email     String?
+  origin    LeadOrigin @default(instagram)
+  message   String?   @db.Text
+  status   LeadStatus @default(nuevo)
+  patientId Int?      @map("patient_id")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  patient Patient? @relation(fields: [patientId], references: [id], onDelete: SetNull)
+
+  @@map("leads")
+}
