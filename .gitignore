@@ -54,3 +54,6 @@ Thumbs.db
 
 # Backup folder (no subir a git)
 /bck
+
+# Old Next.js folder (moved to root)
+/nextjs-crm

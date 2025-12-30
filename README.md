@@ -75,23 +75,26 @@ La aplicación estará disponible en `http://localhost:3000`
 
 ## 🚀 Deployment en Vercel
 
+Para una guía completa y detallada de deployment, consulta: **[VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md)**
+
+### Resumen Rápido:
+
 1. **Conectar repositorio a Vercel**
    - Ve a [Vercel](https://vercel.com)
-   - Importa el repositorio de GitHub
+   - Importa el repositorio `malagadesign/crm-dental`
    - Vercel detectará automáticamente Next.js
 
 2. **Configurar variables de entorno en Vercel**
    - `DATABASE_URL`: URL de tu base de datos MySQL
    - `NEXTAUTH_SECRET`: Genera uno con `openssl rand -base64 32`
-   - `NEXTAUTH_URL`: URL de tu aplicación en Vercel
+   - `NEXTAUTH_URL`: URL de tu aplicación en Vercel (ej: `https://tu-proyecto.vercel.app`)
+   - `NODE_ENV`: `production`
 
-3. **Configurar Build Settings**
-   - Build Command: `pnpm build` (o `npm run build`)
-   - Output Directory: `.next`
-   - Install Command: `pnpm install` (o `npm install`)
-
-4. **Desplegar**
+3. **Desplegar**
+   - Haz clic en "Deploy"
    - Vercel desplegará automáticamente en cada push a `main`
+
+📖 **Ver la guía completa**: [VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md)
 
 ## 📁 Estructura del Proyecto
 
