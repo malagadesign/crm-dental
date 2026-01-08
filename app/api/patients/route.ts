@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { Prisma } from "@prisma/client";
 
 export async function GET(request: Request) {
   try {
@@ -18,14 +19,14 @@ export async function GET(request: Request) {
     const sortBy = searchParams.get("sortBy") || "createdAt";
     const sortOrder = searchParams.get("sortOrder") || "desc";
 
-    const where = search
+    const where: Prisma.PatientWhereInput = search
       ? {
           OR: [
-            { firstName: { contains: search, mode: "insensitive" } },
-            { lastName: { contains: search, mode: "insensitive" } },
-            { dni: { contains: search, mode: "insensitive" } },
-            { email: { contains: search, mode: "insensitive" } },
-            { phone: { contains: search, mode: "insensitive" } },
+            { firstName: { contains: search, mode: Prisma.QueryMode.insensitive } },
+            { lastName: { contains: search, mode: Prisma.QueryMode.insensitive } },
+            { dni: { contains: search, mode: Prisma.QueryMode.insensitive } },
+            { email: { contains: search, mode: Prisma.QueryMode.insensitive } },
+            { phone: { contains: search, mode: Prisma.QueryMode.insensitive } },
           ],
         }
       : {};
