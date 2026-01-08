@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { LeadWithRelations } from "@/types";
+import { LeadWithRelations, LeadStatus, LeadOrigin } from "@/types";
 
 interface LeadDialogProps {
   open: boolean;
@@ -58,14 +58,23 @@ async function updateLead(id: number, data: any) {
 
 export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
   const queryClient = useQueryClient();
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email: string;
+    origin: LeadOrigin;
+    message: string;
+    status: LeadStatus;
+    patientId: string;
+  }>({
     firstName: "",
     lastName: "",
     phone: "",
     email: "",
-    origin: "instagram" as const,
+    origin: "instagram",
     message: "",
-    status: "nuevo" as const,
+    status: "nuevo",
     patientId: "",
   });
 
@@ -84,9 +93,9 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
         lastName: lead.lastName || "",
         phone: lead.phone || "",
         email: lead.email || "",
-        origin: (lead.origin as any) || "instagram",
+        origin: lead.origin || "instagram",
         message: lead.message || "",
-        status: (lead.status as any) || "nuevo",
+        status: lead.status || "nuevo",
         patientId: lead.patientId?.toString() || "",
       });
     } else {
