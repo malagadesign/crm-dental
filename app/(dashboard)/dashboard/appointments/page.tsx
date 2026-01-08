@@ -65,16 +65,20 @@ export default function AppointmentsPage() {
     setIsDialogOpen(true);
   };
 
+  // Crear fecha de hoy a las 00:00:00
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   // Filtrar turnos futuros o de hoy
   const upcomingAppointments =
     appointments?.filter(
-      (apt) => new Date(apt.datetimeStart) >= new Date().setHours(0, 0, 0, 0)
+      (apt) => new Date(apt.datetimeStart) >= today
     ) || [];
 
   // Filtrar turnos pasados
   const pastAppointments =
     appointments?.filter(
-      (apt) => new Date(apt.datetimeStart) < new Date().setHours(0, 0, 0, 0)
+      (apt) => new Date(apt.datetimeStart) < today
     ) || [];
 
   // Ordenar por fecha (ascendente para futuros, descendente para pasados)
