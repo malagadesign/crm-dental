@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AppointmentWithRelations, Clinic, Treatment, User } from "@/types";
+import { AppointmentWithRelations, Clinic, Treatment, User, AppointmentStatus } from "@/types";
 
 interface AppointmentDialogProps {
   open: boolean;
@@ -88,7 +88,17 @@ export function AppointmentDialog({
   appointment,
 }: AppointmentDialogProps) {
   const queryClient = useQueryClient();
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    patientId: string;
+    clinicId: string;
+    treatmentId: string;
+    userId: string;
+    date: string;
+    timeStart: string;
+    timeEnd: string;
+    status: AppointmentStatus;
+    notes: string;
+  }>({
     patientId: "",
     clinicId: "",
     treatmentId: "",
@@ -96,7 +106,7 @@ export function AppointmentDialog({
     date: "",
     timeStart: "",
     timeEnd: "",
-    status: "confirmado" as const,
+    status: "confirmado",
     notes: "",
   });
   const [error, setError] = useState("");
