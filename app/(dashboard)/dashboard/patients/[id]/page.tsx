@@ -21,6 +21,13 @@ async function fetchMedicalRecords(patientId: number) {
   return response.json();
 }
 
+const statusColors: Record<string, string> = {
+  confirmado: "bg-blue-100 text-blue-800",
+  cancelado: "bg-gray-100 text-gray-800",
+  asistio: "bg-green-100 text-green-800",
+  no_asistio: "bg-red-100 text-red-800",
+};
+
 export default function PatientDetailPage({
   params,
 }: {
@@ -217,12 +224,7 @@ export default function PatientDetailPage({
                   </div>
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      {
-                        confirmado: "bg-blue-100 text-blue-800",
-                        cancelado: "bg-gray-100 text-gray-800",
-                        asistio: "bg-green-100 text-green-800",
-                        no_asistio: "bg-red-100 text-red-800",
-                      }[appointment.status]
+                      statusColors[appointment.status] || "bg-gray-100 text-gray-800"
                     }`}
                   >
                     {appointment.status}
