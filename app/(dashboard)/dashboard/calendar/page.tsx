@@ -26,12 +26,13 @@ export default function CalendarPage() {
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithRelations | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
 
-  const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-  const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59);
+  // Cargar un rango amplio: 6 meses atrás y 12 meses adelante para ver histórico y futuro
+  const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 6, 1);
+  const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 12, 0, 23, 59, 59);
 
   const { data: appointments, isLoading } = useQuery({
-    queryKey: ["appointments", "calendar", startOfMonth.toISOString(), endOfMonth.toISOString()],
-    queryFn: () => fetchAppointments(startOfMonth.toISOString(), endOfMonth.toISOString()),
+    queryKey: ["appointments", "calendar", "all"],
+    queryFn: () => fetchAppointments(), // Sin filtros para cargar todos los turnos
   });
 
   // Convertir appointments a eventos de FullCalendar

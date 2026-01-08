@@ -1,6 +1,6 @@
 # CRM Dental - Sistema de Gestión de Consultorios Dentales
 
-Sistema completo de gestión para consultorios dentales desarrollado con Next.js, TypeScript, Prisma y MySQL.
+Sistema completo de gestión para consultorios dentales desarrollado con Next.js, TypeScript, Prisma y Supabase (PostgreSQL).
 
 ## 🚀 Características
 
@@ -16,7 +16,7 @@ Sistema completo de gestión para consultorios dentales desarrollado con Next.js
 
 - **Framework**: Next.js 14
 - **Lenguaje**: TypeScript
-- **Base de Datos**: MySQL (Prisma ORM)
+- **Base de Datos**: Supabase (PostgreSQL con Prisma ORM)
 - **Autenticación**: NextAuth.js
 - **UI**: Tailwind CSS + Radix UI
 - **Calendario**: FullCalendar
@@ -26,7 +26,7 @@ Sistema completo de gestión para consultorios dentales desarrollado con Next.js
 
 - Node.js 18+ 
 - pnpm (o npm/yarn)
-- MySQL 8.0+
+- Cuenta de Supabase (gratis)
 - Cuenta de Vercel (para deployment)
 
 ## 🔧 Instalación
@@ -49,10 +49,12 @@ cp .env.example .env
 
 Editar `.env` con tus credenciales:
 ```env
-DATABASE_URL="mysql://usuario:password@localhost:3306/crm_dental"
+DATABASE_URL="postgresql://postgres:password@db.xxxxx.supabase.co:5432/postgres?pgbouncer=true&connection_limit=1"
 NEXTAUTH_SECRET="tu-secret-key-aqui"
 NEXTAUTH_URL="http://localhost:3000"
 ```
+
+**📖 Para obtener las credenciales de Supabase, consulta: [SUPABASE_MIGRATION.md](./SUPABASE_MIGRATION.md)**
 
 4. **Configurar la base de datos**
 ```bash
@@ -85,7 +87,7 @@ Para una guía completa y detallada de deployment, consulta: **[VERCEL_DEPLOYMEN
    - Vercel detectará automáticamente Next.js
 
 2. **Configurar variables de entorno en Vercel**
-   - `DATABASE_URL`: URL de tu base de datos MySQL
+   - `DATABASE_URL`: URL de tu base de datos Supabase (PostgreSQL)
    - `NEXTAUTH_SECRET`: Genera uno con `openssl rand -base64 32`
    - `NEXTAUTH_URL`: URL de tu aplicación en Vercel (ej: `https://tu-proyecto.vercel.app`)
    - `NODE_ENV`: `production`
@@ -94,7 +96,9 @@ Para una guía completa y detallada de deployment, consulta: **[VERCEL_DEPLOYMEN
    - Haz clic en "Deploy"
    - Vercel desplegará automáticamente en cada push a `main`
 
-📖 **Ver la guía completa**: [VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md)
+📖 **Guías de deployment:**
+- **[SUPABASE_MIGRATION.md](./SUPABASE_MIGRATION.md)** - Guía completa de migración a Supabase + Vercel
+- **[VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md)** - Guía detallada de deployment en Vercel
 
 ## 📁 Estructura del Proyecto
 
