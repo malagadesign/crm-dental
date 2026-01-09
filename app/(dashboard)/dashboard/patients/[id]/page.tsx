@@ -4,7 +4,7 @@ import { use, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, FileText, Calendar } from "lucide-react";
+import { ArrowLeft, Plus, FileText, Calendar, Building2, Stethoscope, User, Clock } from "lucide-react";
 import Link from "next/link";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { MedicalRecordDialog } from "@/components/patients/medical-record-dialog";
@@ -202,39 +202,80 @@ export default function PatientDetailPage({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            Turnos
+            Historial de Turnos
           </CardTitle>
         </CardHeader>
         <CardContent>
           {patient.appointments && patient.appointments.length > 0 ? (
-            <div className="space-y-2">
-              {patient.appointments.map((appointment: any) => (
-                <div
-                  key={appointment.id}
-                  className="flex items-center justify-between p-3 border rounded-lg"
-                >
-                  <div>
-                    <div className="font-medium">
-                      {formatDateTime(appointment.datetimeStart)}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {appointment.clinic.name}
-                      {appointment.treatment && ` - ${appointment.treatment.name}`}
-                    </div>
-                  </div>
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      statusColors[appointment.status] || "bg-gray-100 text-gray-800"
+            <div className="space-y-3">
+              {patient.appointments.map((appointment: any) => {
+                const appointmentDate = new Date(appointment.datetimeStart);
+                const appointmentEnd = new Date(appointment.datetimeEnd);
+                const duration = Math.round(
+                  (appointmentEnd.getTime() - appointmentDate.getTime()) / 60000
+                );
+                const isPast = appointmentDate < new Date();
+                
+                return (
+                  <div
+                    key={appointment.id}
+                    className={`flex items-start justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors ${
+                      isPast ? "opacity-75" : ""
                     }`}
                   >
-                    {appointment.status}
-                  </span>
-                </div>
-              ))}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="font-medium text-base">
+                          {formatDateTime(appointmentDate)}
+                        </div>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            statusColors[appointment.status] || "bg-gray-100 text-gray-800"
+                          }`}
+                        >
+                          {appointment.status === "confirmado" ? "Confirmado" :
+                           appointment.status === "cancelado" ? "Cancelado" :
+                           appointment.status === "asistio" ? "Asistió" :
+                           appointment.status === "no_asistio" ? "No Asistió" :
+                           appointment.status}
+                        </span>
+                      </div>
+                      <div className="space-y-1 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4" />
+                          <span>{appointment.clinic.name}</span>
+                        </div>
+                        {appointment.treatment && (
+                          <div className="flex items-center gap-2">
+                            <Stethoscope className="h-4 w-4" />
+                            <span>{appointment.treatment.name}</span>
+                          </div>
+                        )}
+                        {appointment.user && (
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4" />
+                            <span>Dr. {appointment.user.name}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          <span>Duración: {duration} minutos</span>
+                        </div>
+                        {appointment.notes && (
+                          <div className="mt-2 pt-2 border-t text-xs">
+                            <span className="font-medium">Notas: </span>
+                            {appointment.notes}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              No hay turnos registrados
+              No hay turnos registrados para este paciente
             </div>
           )}
         </CardContent>

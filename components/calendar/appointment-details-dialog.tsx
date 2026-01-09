@@ -84,6 +84,20 @@ async function fetchUsers() {
   return response.json();
 }
 
+async function fetchPatientAppointments(patientId: number) {
+  const response = await fetch(`/api/appointments?patientId=${patientId}`);
+  if (!response.ok) throw new Error("Error fetching patient appointments");
+  const appointments = await response.json();
+  // Asegurar que es un array
+  const appointmentsArray = Array.isArray(appointments) ? appointments : (appointments.data || []);
+  // Ordenar por fecha descendente y tomar los últimos 10
+  return appointmentsArray
+    .sort((a: any, b: any) => 
+      new Date(b.datetimeStart).getTime() - new Date(a.datetimeStart).getTime()
+    )
+    .slice(0, 10);
+}
+
 async function updateAppointment(id: number, data: any) {
   const response = await fetch(`/api/appointments/${id}`, {
     method: "PUT",
@@ -152,6 +166,18 @@ export function AppointmentDetailsDialog({
     queryFn: fetchUsers,
     enabled: isEditing,
   });
+
+  // Cargar historial de turnos del paciente (solo en modo visualización)
+  const { data: patientAppointments } = useQuery({
+    queryKey: ["patient-appointments", appointment?.patient?.id],
+    queryFn: () => appointment?.patient?.id ? fetchPatientAppointments(appointment.patient.id) : [],
+    enabled: !isEditing && !!appointment?.patient?.id,
+  });
+
+  // Filtrar el turno actual del historial (ya viene ordenado de fetchPatientAppointments)
+  const patientHistory = patientAppointments
+    ?.filter((apt: any) => apt.id !== appointment?.id)
+    .slice(0, 5) || [];
 
   // Inicializar formulario cuando se abre el modal o cambia el appointment
   useEffect(() => {
@@ -588,6 +614,68 @@ export function AppointmentDetailsDialog({
                   {appointment.notes}
                 </p>
               </div>
+            </div>
+          )}
+
+          {/* Historial de Turnos del Paciente */}
+          {patientHistory && patientHistory.length > 0 && (
+            <div className="pt-4 border-t">
+              <p className="text-sm font-medium text-muted-foreground mb-3">
+                Historial de Turnos del Paciente
+              </p>
+              <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                {patientHistory.map((histAppointment: any) => {
+                  const histDate = new Date(histAppointment.datetimeStart);
+                  const histEnd = new Date(histAppointment.datetimeEnd);
+                  const histDuration = Math.round(
+                    (histEnd.getTime() - histDate.getTime()) / 60000
+                  );
+                  const isHistPast = histDate < new Date();
+                  
+                  return (
+                    <div
+                      key={histAppointment.id}
+                      className={`flex items-start justify-between p-3 border rounded-lg text-sm ${
+                        isHistPast ? "opacity-75 bg-muted/30" : "bg-background"
+                      }`}
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium">
+                            {formatDateTime(histDate)}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${getStatusColor(histAppointment.status)}`}
+                          >
+                            {getStatusLabel(histAppointment.status)}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground space-y-0.5">
+                          {histAppointment.clinic && (
+                            <div>{histAppointment.clinic.name}</div>
+                          )}
+                          {histAppointment.treatment && (
+                            <div>{histAppointment.treatment.name}</div>
+                          )}
+                          {histAppointment.user && (
+                            <div>Dr. {histAppointment.user.name}</div>
+                          )}
+                          <div>Duración: {histDuration} min</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {patientHistory.length >= 5 && (
+                <Link
+                  href={`/dashboard/patients/${appointment.patient.id}`}
+                  className="text-xs text-primary hover:underline mt-2 inline-block"
+                >
+                  Ver historial completo →
+                </Link>
+              )}
             </div>
           )}
 
