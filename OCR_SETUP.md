@@ -130,6 +130,30 @@ Una vez configurado, los usuarios pueden:
 7. Actualiza la variable `GOOGLE_CLOUD_VISION_API_KEY` en Vercel con la nueva clave
 8. Espera unos minutos y vuelve a intentar
 
+### Error: "Requests from referer <empty> are blocked" (403 - API_KEY_HTTP_REFERRER_BLOCKED)
+
+**Este es el error que estás viendo.** Indica que tu API Key tiene restricciones de HTTP referrer configuradas, pero las llamadas desde el servidor (API routes de Next.js) no envían un referrer HTTP.
+
+**Problema:** Las restricciones de HTTP referrer funcionan para llamadas desde el navegador (client-side), pero NO para llamadas desde el servidor (server-side). Como estamos haciendo la llamada desde una API route de Next.js, no hay referrer HTTP y Google bloquea la solicitud.
+
+**Solución:**
+1. Ve a Google Cloud Console > APIs & Services > Credentials
+2. Haz clic en tu API Key para editarla
+3. En la sección **"Application restrictions"** (Restricciones de aplicaciones):
+   - Cambia de **"Sitios web" (Websites)** a **"Ninguno" (None)**
+   - Esto permitirá que la API Key funcione desde el servidor
+4. En **"API restrictions"** (Restricciones de API):
+   - Mantén **"Restringir clave" (Restrict key)**
+   - Asegúrate de que **"Cloud Vision API"** esté en la lista de APIs permitidas
+5. Haz clic en **"Guardar" (Save)**
+6. Espera 2-5 minutos para que los cambios se propaguen
+7. Vuelve a intentar
+
+**Nota de seguridad:** 
+- Si necesitas mantener seguridad, puedes usar restricciones de IP en lugar de HTTP referrer
+- Para desarrollo local y producción en Vercel, "Ninguno" es la opción más simple y funcional
+- Las restricciones de API (solo Cloud Vision API) ya proporcionan un nivel de seguridad adecuado
+
 ### Error: "API Key inválida o sin permisos" (401/403)
 
 Este error indica que la API Key está configurada pero no es válida o no tiene permisos. Sigue estos pasos:

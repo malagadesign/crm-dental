@@ -256,6 +256,7 @@ export async function POST(request: Request) {
         // Si es un error de autenticación, dar un mensaje más específico
         if (visionResponse.status === 401 || visionResponse.status === 403) {
           const detailedError = errorJson?.error?.message || errorMessage;
+          const errorReason = errorJson?.error?.details?.[0]?.reason;
           
           // Detectar el error específico de API Key vinculada a cuenta de servicio
           if (detailedError?.includes("API keys are not supported") || 
@@ -279,6 +280,33 @@ Si prefieres usar las credenciales de tu cuenta de servicio, configura GOOGLE_AP
             );
           }
           
+          // Detectar el error de restricciones de HTTP referrer
+          if (errorReason === "API_KEY_HTTP_REFERRER_BLOCKED" || 
+              detailedError?.includes("referer") || 
+              detailedError?.includes("referrer")) {
+            return NextResponse.json(
+              {
+                error: `Tu API Key tiene restricciones de HTTP referrer que bloquean las llamadas desde el servidor.
+
+**Problema:** Las llamadas desde el servidor (API routes de Next.js) no envían un referrer HTTP, por lo que Google bloquea la solicitud.
+
+**Solución:**
+1. Ve a Google Cloud Console > APIs & Services > Credentials
+2. Haz clic en tu API Key para editarla
+3. En "Application restrictions", cambia de "Sitios web" (Websites) a **"Ninguno" (None)**
+   - Esto permitirá que la API Key funcione desde el servidor
+4. En "API restrictions", mantén "Restringir clave" y asegúrate de que "Cloud Vision API" esté en la lista
+5. Guarda los cambios y espera 2-5 minutos para que se propaguen
+6. Vuelve a intentar
+
+**Nota:** Si necesitas mantener seguridad, puedes usar restricciones de IP en lugar de HTTP referrer, pero para desarrollo y producción en Vercel, "Ninguno" es la opción más simple.`,
+                details: detailedError,
+                reason: errorReason,
+              },
+              { status: 403 }
+            );
+          }
+          
           return NextResponse.json(
             {
               error: `API Key inválida o sin permisos: ${detailedError}. Verifica que:
@@ -287,6 +315,7 @@ Si prefieres usar las credenciales de tu cuenta de servicio, configura GOOGLE_AP
 3. La API Key tenga permisos para Cloud Vision API
 4. No haya restricciones de IP/HTTP referrer bloqueando Vercel`,
               details: detailedError,
+              reason: errorReason,
             },
             { status: 401 }
           );
