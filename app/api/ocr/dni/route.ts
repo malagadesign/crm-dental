@@ -18,16 +18,21 @@ function parseDNIData(text: string): {
   console.log("[Parser] Líneas encontradas:", lines.length);
 
   // 1. BUSCAR APELLIDO (SURNAME) - Buscar después de etiquetas como "APELLIDO", "SURNAME"
+  // Formato típico: "APELLIDO / Surname: ORDOÑEZ KRASNOWSKI" o "APELLIDO: ORDOÑEZ KRASNOWSKI"
   const surnamePatterns = [
-    /(?:APELLIDO|SURNAME)[:\/\s]*([A-ZÁÉÍÓÚÑÜ\s]+?)(?:\s*\n|\s*NOMBRE|\s*NAME|\s*$)/i,
-    /(?:APELLIDO|SURNAME)[:\/\s]*([A-ZÁÉÍÓÚÑÜ\s]{3,})/i,
+    /(?:APELLIDO|SURNAME)(?:\s*\/\s*[A-Z]+)?[:\s]+([A-ZÁÉÍÓÚÑÜ\s]+?)(?:\s*\n|\s*NOMBRE|\s*NAME|\s*SEXO|\s*SEX|\s*$)/i,
+    /(?:APELLIDO|SURNAME)(?:\s*\/\s*[A-Z]+)?[:\s]+([A-ZÁÉÍÓÚÑÜ\s]{3,30})/i,
   ];
   
   for (const pattern of surnamePatterns) {
     const match = normalizedText.match(pattern);
     if (match && match[1]) {
-      const surname = match[1].trim().replace(/[^\w\sÁÉÍÓÚÑÜ]/g, '').trim();
-      if (surname.length > 2 && !surname.includes("DOCUMENTO") && !surname.includes("NACIONAL")) {
+      let surname = match[1].trim();
+      // Limpiar caracteres especiales pero mantener espacios para apellidos compuestos
+      surname = surname.replace(/[^\w\sÁÉÍÓÚÑÜ]/g, '').replace(/\s+/g, ' ').trim();
+      if (surname.length > 2 && 
+          !surname.includes("DOCUMENTO") && !surname.includes("NACIONAL") &&
+          !surname.includes("MINISTERIO") && !surname.includes("INTERIOR")) {
         data.lastName = surname;
         console.log("[Parser] Apellido encontrado:", surname);
         break;
@@ -36,16 +41,21 @@ function parseDNIData(text: string): {
   }
 
   // 2. BUSCAR NOMBRE (NAME) - Buscar después de etiquetas como "NOMBRE", "NAME"
+  // Formato típico: "NOMBRE / Name: LAURA GIMENA" o "NOMBRE: LAURA GIMENA"
   const namePatterns = [
-    /(?:NOMBRE|NAME)[:\/\s]*([A-ZÁÉÍÓÚÑÜ\s]+?)(?:\s*\n|\s*SEXO|\s*SEX|\s*NACIONALIDAD|\s*FECHA|\s*$)/i,
-    /(?:NOMBRE|NAME)[:\/\s]*([A-ZÁÉÍÓÚÑÜ\s]{3,})/i,
+    /(?:NOMBRE|NAME)(?:\s*\/\s*[A-Z]+)?[:\s]+([A-ZÁÉÍÓÚÑÜ\s]+?)(?:\s*\n|\s*SEXO|\s*SEX|\s*NACIONALIDAD|\s*FECHA|\s*DOCUMENTO|\s*$)/i,
+    /(?:NOMBRE|NAME)(?:\s*\/\s*[A-Z]+)?[:\s]+([A-ZÁÉÍÓÚÑÜ\s]{3,30})/i,
   ];
   
   for (const pattern of namePatterns) {
     const match = normalizedText.match(pattern);
     if (match && match[1]) {
-      const name = match[1].trim().replace(/[^\w\sÁÉÍÓÚÑÜ]/g, '').trim();
-      if (name.length > 2 && !name.includes("DOCUMENTO") && !name.includes("NACIONAL")) {
+      let name = match[1].trim();
+      // Limpiar caracteres especiales pero mantener espacios para nombres compuestos
+      name = name.replace(/[^\w\sÁÉÍÓÚÑÜ]/g, '').replace(/\s+/g, ' ').trim();
+      if (name.length > 2 && 
+          !name.includes("DOCUMENTO") && !name.includes("NACIONAL") &&
+          !name.includes("MINISTERIO") && !name.includes("INTERIOR")) {
         data.firstName = name;
         console.log("[Parser] Nombre encontrado:", name);
         break;
@@ -113,11 +123,12 @@ function parseDNIData(text: string): {
   }
 
   // 3. BUSCAR DNI - Buscar después de etiquetas como "DOCUMENTO", "DOCUMENT" o formato con puntos
+  // Formato típico: "Documento / Document: 26.200.553" o "26.200.553"
   const dniPatterns = [
-    /(?:DOCUMENTO|DOCUMENT|DNI)[:\/\s]*([\d\.]{7,12})/i,
-    /(?:DOCUMENTO|DOCUMENT)[:\/\s]*(\d{1,2}\.?\d{3}\.?\d{3})/i,
-    /\b(\d{1,2}\.\d{3}\.\d{3})\b/,  // Formato 26.200.553
-    /\b(\d{8})\b/,  // Formato sin puntos
+    /(?:DOCUMENTO|DOCUMENT|DNI)(?:\s*\/\s*[A-Z]+)?[:\s]+(\d{1,2}\.?\d{3}\.?\d{3})/i,
+    /(?:DOCUMENTO|DOCUMENT|DNI)(?:\s*\/\s*[A-Z]+)?[:\s]+([\d\.]{7,12})/i,
+    /\b(\d{1,2}\.\d{3}\.\d{3})\b/,  // Formato 26.200.553 (con puntos)
+    /(?:^|\s)(\d{8})(?:\s|$)/,  // Formato sin puntos (8 dígitos, palabra completa)
   ];
   
   for (const pattern of dniPatterns) {
@@ -126,8 +137,12 @@ function parseDNIData(text: string): {
       let dni = match[1].replace(/\./g, ''); // Remover puntos
       // Validar que sea un número de 7-8 dígitos
       if (dni.length >= 7 && dni.length <= 8 && /^\d+$/.test(dni)) {
-        // Verificar que no sea parte de una fecha o CUIL
-        if (!normalizedText.includes(`CUIL`) || !normalizedText.includes(`CUIL${dni}`)) {
+        // Verificar que no sea parte de una fecha o CUIL o TRAMITE
+        const dniContext = normalizedText.substring(Math.max(0, normalizedText.indexOf(dni) - 20), 
+                                                     normalizedText.indexOf(dni) + 30);
+        if (!dniContext.includes("CUIL") && 
+            !dniContext.includes("TRAMITE") && 
+            !dniContext.includes("FECHA")) {
           data.dni = dni;
           console.log("[Parser] DNI encontrado:", dni);
           break;
