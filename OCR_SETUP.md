@@ -41,24 +41,24 @@ Google Cloud Vision API ofrece alta precisión en el reconocimiento de texto y e
    - ⚠️ **IMPORTANTE:** Guarda este archivo en un lugar seguro, no lo subas a GitHub
 
 5. **Configurar la variable de entorno**
-   - Opción A: Usar API Key (más simple, menos seguro)
+
+   **⚠️ IMPORTANTE:** Si creaste una cuenta de servicio primero, NO uses esa API Key vinculada. Necesitas crear una API Key **separada** que NO esté vinculada a ninguna cuenta de servicio.
+
+   - **Opción A: Usar API Key simple (Recomendada)**
      - Ve a "APIs & Services" > "Credentials"
      - Haz clic en "Create Credentials" > "API Key"
+     - **IMPORTANTE:** Cuando se cree la API Key, asegúrate de que NO esté vinculada a ninguna cuenta de servicio
+       - Si ves "Cuenta vinculada" en la configuración de la API Key, elimínala y crea una nueva sin cuenta de servicio
      - Copia la clave generada
      - Agrega a tu archivo `.env`:
      ```env
      GOOGLE_CLOUD_VISION_API_KEY=tu-api-key-aqui
      ```
+     - En Vercel, agrega la variable en "Settings" > "Environment Variables"
    
-   - Opción B: Usar cuenta de servicio (recomendado para producción)
-     - Convierte el contenido del archivo JSON descargado a base64 o guárdalo como variable de entorno
-     - Agrega a tu archivo `.env`:
-     ```env
-     GOOGLE_APPLICATION_CREDENTIALS_JSON={"type":"service_account",...}
-     ```
-     - O guarda el archivo JSON y referencia su ruta (solo para desarrollo local)
-   
-   - En Vercel, agrega la variable en "Settings" > "Environment Variables"
+   - **Opción B: Usar credenciales JSON de cuenta de servicio (No implementado aún)**
+     - Esta opción requiere configuración adicional y aún no está implementada en el código
+     - Por ahora, usa la Opción A (API Key simple)
 
 6. **Configurar restricciones (Opcional pero recomendado para API Key)**
    - En Google Cloud Console, edita tu API Key
@@ -113,6 +113,22 @@ Una vez configurado, los usuarios pueden:
 ### Error: "OCR no configurado"
 - Verifica que `GOOGLE_CLOUD_VISION_API_KEY` esté configurada en las variables de entorno
 - Asegúrate de que la API Key tenga permisos para Cloud Vision API
+
+### Error: "API keys are not supported by this API. Expected OAuth2 access token"
+
+**Este es el error que estás viendo.** Indica que tu API Key está vinculada a una cuenta de servicio y no puede usarse directamente con la API REST.
+
+**Solución:**
+1. Ve a Google Cloud Console > APIs & Services > Credentials
+2. Haz clic en "Create Credentials" > "API Key"
+3. **IMPORTANTE:** En la nueva API Key, asegúrate de que NO aparezca ninguna "Cuenta vinculada"
+   - Si ves "Cuenta vinculada: dental@agoradental.iam.gserviceaccount.com", esta API Key NO funcionará
+   - Elimina esta API Key y crea una nueva
+4. En "API restrictions", selecciona "Restrict key" y agrega "Cloud Vision API"
+5. En "Application restrictions", puedes dejarlo en "None" o restringir por HTTP referrer agregando `*.vercel.app`
+6. Copia la nueva API Key (debería comenzar con algo como `AIza...`)
+7. Actualiza la variable `GOOGLE_CLOUD_VISION_API_KEY` en Vercel con la nueva clave
+8. Espera unos minutos y vuelve a intentar
 
 ### Error: "API Key inválida o sin permisos" (401/403)
 

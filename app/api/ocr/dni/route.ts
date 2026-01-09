@@ -212,18 +212,38 @@ export async function POST(request: Request) {
         
         // Si es un error de autenticación, dar un mensaje más específico
         if (visionResponse.status === 401 || visionResponse.status === 403) {
-          const detailedError = errorJson?.error?.message 
-            ? `: ${errorJson.error.message}` 
-            : "";
+          const detailedError = errorJson?.error?.message || errorMessage;
+          
+          // Detectar el error específico de API Key vinculada a cuenta de servicio
+          if (detailedError?.includes("API keys are not supported") || 
+              detailedError?.includes("Expected OAuth2 access token")) {
+            return NextResponse.json(
+              {
+                error: `Tu API Key está vinculada a una cuenta de servicio y no puede usarse directamente con la API REST.
+
+**Solución rápida (Recomendada):**
+1. Ve a Google Cloud Console > APIs & Services > Credentials
+2. Haz clic en "Create Credentials" > "API Key"
+3. En la nueva API Key, asegúrate de que NO esté vinculada a ninguna cuenta de servicio
+4. En "API restrictions", selecciona "Restrict key" y agrega "Cloud Vision API"
+5. Actualiza la variable GOOGLE_CLOUD_VISION_API_KEY en Vercel con la nueva clave
+
+**Solución alternativa (Con credenciales JSON):**
+Si prefieres usar las credenciales de tu cuenta de servicio, configura GOOGLE_APPLICATION_CREDENTIALS_JSON con el contenido JSON completo de tu archivo de credenciales.`,
+                details: detailedError,
+              },
+              { status: 401 }
+            );
+          }
           
           return NextResponse.json(
             {
-              error: `API Key inválida o sin permisos${detailedError}. Verifica que:
+              error: `API Key inválida o sin permisos: ${detailedError}. Verifica que:
 1. La API Key esté correctamente copiada en Vercel (sin espacios al inicio/final)
 2. Cloud Vision API esté habilitada en tu proyecto de Google Cloud
 3. La API Key tenga permisos para Cloud Vision API
 4. No haya restricciones de IP/HTTP referrer bloqueando Vercel`,
-              details: errorMessage,
+              details: detailedError,
             },
             { status: 401 }
           );
