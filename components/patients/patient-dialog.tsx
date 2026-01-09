@@ -21,6 +21,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Patient, PatientOrigin } from "@prisma/client";
+import { DNIScanner } from "./dni-scanner";
+import { Scan } from "lucide-react";
 
 interface PatientDialogProps {
   open: boolean;
@@ -81,6 +83,7 @@ export function PatientDialog({ open, onOpenChange, patient }: PatientDialogProp
     notes: "",
   });
   const [error, setError] = useState("");
+  const [showDNIScanner, setShowDNIScanner] = useState(false);
 
   useEffect(() => {
     if (patient) {
@@ -172,13 +175,43 @@ export function PatientDialog({ open, onOpenChange, patient }: PatientDialogProp
               : "Registra un nuevo paciente en el sistema"}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
-            {error && (
-              <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
-                {error}
+        {showDNIScanner ? (
+          <DNIScanner
+            onDataExtracted={(data) => {
+              setFormData((prev) => ({
+                ...prev,
+                firstName: data.firstName || prev.firstName,
+                lastName: data.lastName || prev.lastName,
+                dni: data.dni || prev.dni,
+                birthDate: data.birthDate || prev.birthDate,
+                address: data.address || prev.address,
+              }));
+              setShowDNIScanner(false);
+            }}
+            onClose={() => setShowDNIScanner(false)}
+          />
+        ) : (
+          <>
+            {!patient && (
+              <div className="mb-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowDNIScanner(true)}
+                  className="w-full"
+                >
+                  <Scan className="mr-2 h-4 w-4" />
+                  Escanear DNI para extraer datos automáticamente
+                </Button>
               </div>
             )}
+            <form onSubmit={handleSubmit}>
+              <div className="grid gap-4 py-4">
+                {error && (
+                  <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
+                    {error}
+                  </div>
+                )}
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="firstName">Nombre *</Label>
@@ -315,6 +348,8 @@ export function PatientDialog({ open, onOpenChange, patient }: PatientDialogProp
             </Button>
           </DialogFooter>
         </form>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
