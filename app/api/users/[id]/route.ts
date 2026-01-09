@@ -80,7 +80,7 @@ export async function PUT(
     const updateData: any = {
       name,
       email,
-      role: role || "secretary",
+      role: role || "odontologo",
     };
 
     // Solo actualizar password si se proporciona

@@ -88,6 +88,8 @@ export default function UsersPage() {
                     <div className="p-2 rounded-lg bg-primary/10">
                       {user.role === "admin" ? (
                         <Shield className="h-5 w-5 text-primary" />
+                      ) : user.role === "odontologo" ? (
+                        <UserCog className="h-5 w-5 text-primary" />
                       ) : (
                         <UserIcon className="h-5 w-5 text-primary" />
                       )}
@@ -124,11 +126,17 @@ export default function UsersPage() {
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium ${
                         user.role === "admin"
+                          ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+                          : user.role === "odontologo"
                           ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
                           : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
                       }`}
                     >
-                      {user.role === "admin" ? "Odontólogo" : "Secretaria"}
+                      {user.role === "admin"
+                        ? "Administrador"
+                        : user.role === "odontologo"
+                        ? "Odontólogo"
+                        : "Secretaria"}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground">

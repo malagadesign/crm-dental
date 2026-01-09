@@ -111,6 +111,8 @@ export function UserDialog({ open, onOpenChange, user }: UserDialogProps) {
           } as any),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
+      // Si se actualizó el usuario actual, invalidar también la sesión
+      queryClient.invalidateQueries({ queryKey: ["session"] });
       onOpenChange(false);
       setFormData({
         name: "",

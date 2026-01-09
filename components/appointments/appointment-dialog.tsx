@@ -360,11 +360,13 @@ export function AppointmentDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="unassigned">Sin asignar</SelectItem>
-                  {users?.map((user: User) => (
-                    <SelectItem key={user.id} value={user.id.toString()}>
-                      {user.name}
-                    </SelectItem>
-                  ))}
+                  {users
+                    ?.filter((user: User) => user.role === "odontologo")
+                    .map((user: User) => (
+                      <SelectItem key={user.id} value={user.id.toString()}>
+                        {user.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
