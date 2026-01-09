@@ -19,19 +19,48 @@ Google Cloud Vision API ofrece alta precisión en el reconocimiento de texto y e
    - Busca "Cloud Vision API"
    - Haz clic en "Enable"
 
-3. **Crear una API Key**
+3. **Crear una Cuenta de Servicio**
    - Ve a "APIs & Services" > "Credentials"
-   - Haz clic en "Create Credentials" > "API Key"
-   - Copia la clave generada
+   - Haz clic en "Create Credentials" > "Service Account"
+   - Completa el formulario:
+     - **¿Qué API estás usando?** → Selecciona "Cloud Vision API"
+     - **¿A qué datos quieres acceder?** → Selecciona **"Datos de aplicaciones"** (Application data)
+   - Asigna un nombre a la cuenta de servicio (ej: "crm-dental-ocr")
+   - Haz clic en "Create and Continue"
+   - Opcional: Asigna roles (puedes saltar este paso)
+   - Haz clic en "Done"
 
-4. **Configurar la variable de entorno**
-   - Agrega la siguiente variable a tu archivo `.env`:
-   ```env
-   GOOGLE_CLOUD_VISION_API_KEY=tu-api-key-aqui
-   ```
-   - En Vercel, agrega esta variable en "Settings" > "Environment Variables"
+4. **Crear y descargar la clave JSON**
+   - En la lista de cuentas de servicio, haz clic en la que acabas de crear (en tu caso "Dental")
+   - Ve a la pestaña "Claves" (Keys) - deberías ver una tabla vacía que dice "No hay filas para mostrar"
+   - Haz clic en el botón azul **"Agregar clave"** (Add key)
+   - En el menú desplegable, selecciona **"Crear nueva clave"** (Create new key)
+   - Se abrirá un diálogo, selecciona el formato **"JSON"**
+   - Haz clic en "Crear" (Create)
+   - **Se descargará automáticamente** un archivo JSON con las credenciales (el nombre será algo como `agoradental-xxxxx-xxxxx.json`)
+   - ⚠️ **IMPORTANTE:** Guarda este archivo en un lugar seguro, no lo subas a GitHub
 
-5. **Configurar restricciones (Opcional pero recomendado)**
+5. **Configurar la variable de entorno**
+   - Opción A: Usar API Key (más simple, menos seguro)
+     - Ve a "APIs & Services" > "Credentials"
+     - Haz clic en "Create Credentials" > "API Key"
+     - Copia la clave generada
+     - Agrega a tu archivo `.env`:
+     ```env
+     GOOGLE_CLOUD_VISION_API_KEY=tu-api-key-aqui
+     ```
+   
+   - Opción B: Usar cuenta de servicio (recomendado para producción)
+     - Convierte el contenido del archivo JSON descargado a base64 o guárdalo como variable de entorno
+     - Agrega a tu archivo `.env`:
+     ```env
+     GOOGLE_APPLICATION_CREDENTIALS_JSON={"type":"service_account",...}
+     ```
+     - O guarda el archivo JSON y referencia su ruta (solo para desarrollo local)
+   
+   - En Vercel, agrega la variable en "Settings" > "Environment Variables"
+
+6. **Configurar restricciones (Opcional pero recomendado para API Key)**
    - En Google Cloud Console, edita tu API Key
    - En "API restrictions", selecciona "Restrict key" y elige "Cloud Vision API"
    - En "Application restrictions", puedes restringir por dominio (para producción)

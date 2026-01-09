@@ -152,68 +152,108 @@ export async function POST(request: Request) {
     // 2. Si no, usar Tesseract.js (requiere instalación)
 
     // Opción 1: Google Cloud Vision API
-    if (process.env.GOOGLE_CLOUD_VISION_API_KEY) {
-      try {
-        const visionResponse = await fetch(
-          `https://vision.googleapis.com/v1/images:annotate?key=${process.env.GOOGLE_CLOUD_VISION_API_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              requests: [
-                {
-                  image: { content: frontBase64 },
-                  features: [{ type: "TEXT_DETECTION" }],
-                },
-                ...(backBase64
-                  ? [
-                      {
-                        image: { content: backBase64 },
-                        features: [{ type: "TEXT_DETECTION" }],
-                      },
-                    ]
-                  : []),
-              ],
-            }),
-          }
-        );
-
-        if (!visionResponse.ok) {
-          throw new Error("Google Vision API error");
-        }
-
-        const visionData = await visionResponse.json();
-        let fullText = "";
-
-        if (visionData.responses) {
-          visionData.responses.forEach((response: any) => {
-            if (response.fullTextAnnotation?.text) {
-              fullText += response.fullTextAnnotation.text + "\n";
-            }
-          });
-        }
-
-        const extractedData = parseDNIData(fullText);
-        return NextResponse.json(extractedData);
-      } catch (error) {
-        console.error("Google Vision API error:", error);
-        // Continuar con fallback
-      }
+    const apiKey = process.env.GOOGLE_CLOUD_VISION_API_KEY;
+    
+    if (!apiKey) {
+      console.error("GOOGLE_CLOUD_VISION_API_KEY no está configurada");
+      return NextResponse.json(
+        {
+          error:
+            "OCR no configurado. Por favor configura GOOGLE_CLOUD_VISION_API_KEY en las variables de entorno de Vercel.",
+        },
+        { status: 501 }
+      );
     }
 
-    // Opción 2: Tesseract.js (requiere instalación en el servidor)
-    // Por ahora, retornamos un error indicando que se necesita configurar
-    return NextResponse.json(
-      {
-        error:
-          "OCR no configurado. Por favor configura GOOGLE_CLOUD_VISION_API_KEY en las variables de entorno o instala Tesseract.js",
-        // Para desarrollo, puedes retornar datos de ejemplo:
-        // firstName: "Ejemplo",
-        // lastName: "Paciente",
-        // dni: "12345678",
-      },
-      { status: 501 }
-    );
+    try {
+      const visionResponse = await fetch(
+        `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requests: [
+              {
+                image: { content: frontBase64 },
+                features: [{ type: "TEXT_DETECTION" }],
+              },
+              ...(backBase64
+                ? [
+                    {
+                      image: { content: backBase64 },
+                      features: [{ type: "TEXT_DETECTION" }],
+                    },
+                  ]
+                : []),
+            ],
+          }),
+        }
+      );
+
+      if (!visionResponse.ok) {
+        const errorText = await visionResponse.text();
+        console.error("Google Vision API error:", {
+          status: visionResponse.status,
+          statusText: visionResponse.statusText,
+          error: errorText,
+        });
+        
+        // Si es un error de autenticación, dar un mensaje más específico
+        if (visionResponse.status === 401 || visionResponse.status === 403) {
+          return NextResponse.json(
+            {
+              error: "API Key inválida o sin permisos. Verifica que la clave esté correctamente configurada en Vercel.",
+            },
+            { status: 401 }
+          );
+        }
+        
+        throw new Error(`Google Vision API error: ${visionResponse.status} ${visionResponse.statusText}`);
+      }
+
+      const visionData = await visionResponse.json();
+      
+      // Verificar si hay errores en la respuesta
+      if (visionData.responses && visionData.responses[0]?.error) {
+        console.error("Google Vision API response error:", visionData.responses[0].error);
+        return NextResponse.json(
+          {
+            error: `Error de Google Vision API: ${visionData.responses[0].error.message || "Error desconocido"}`,
+          },
+          { status: 400 }
+        );
+      }
+      
+      let fullText = "";
+
+      if (visionData.responses) {
+        visionData.responses.forEach((response: any) => {
+          if (response.fullTextAnnotation?.text) {
+            fullText += response.fullTextAnnotation.text + "\n";
+          }
+        });
+      }
+
+      if (!fullText.trim()) {
+        return NextResponse.json(
+          {
+            error: "No se pudo extraer texto de las imágenes. Por favor verifica que las imágenes sean claras y legibles.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const extractedData = parseDNIData(fullText);
+      return NextResponse.json(extractedData);
+    } catch (error: any) {
+      console.error("Error procesando con Google Vision API:", error);
+      return NextResponse.json(
+        {
+          error: `Error al procesar las imágenes: ${error.message || "Error desconocido"}`,
+        },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error("Error processing DNI:", error);
     return NextResponse.json(

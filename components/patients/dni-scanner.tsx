@@ -148,6 +148,7 @@ export function DNIScanner({ onDataExtracted, onClose }: DNIScannerProps) {
             >
               {frontPreview ? (
                 <div className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={frontPreview}
                     alt="Frente del DNI"
@@ -197,6 +198,7 @@ export function DNIScanner({ onDataExtracted, onClose }: DNIScannerProps) {
             >
               {backPreview ? (
                 <div className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={backPreview}
                     alt="Dorso del DNI"
