@@ -48,34 +48,71 @@ function parseDNIData(frontText: string, backText: string = ""): {
   }
 
   // 2. BUSCAR NOMBRE (NAME) - Solo en el FRENTE
-  // Formato típico: "NOMBRE / Name: LAURA GIMENA" o "NOMBRE: LAURA GIMENA"
-  const namePatterns = [
-    /(?:NOMBRE|NAME)(?:\s*\/\s*[A-Z]+)?[:\s]+([A-ZÁÉÍÓÚÑÜ][A-ZÁÉÍÓÚÑÜ\s]{2,30}?)(?:\s*\n|\s*SEXO|\s*SEX|\s*NACIONALIDAD|\s*FECHA|\s*DOCUMENTO|\s*NACIMIENTO|\s*$)/i,
-    /(?:NOMBRE|NAME)(?:\s*\/\s*[A-Z]+)?[:\s]+([A-ZÁÉÍÓÚÑÜ][A-ZÁÉÍÓÚÑÜ\s]{2,30})/i,
-    // También buscar en líneas que contengan "NOMBRE" seguido de texto
-    /NOMBRE\s+([A-ZÁÉÍÓÚÑÜ][A-ZÁÉÍÓÚÑÜ\s]{2,30})/i,
-  ];
+  // Formato típico: "Nombre / Name" en una línea y "LAURA GIMENA" en la siguiente
+  // O "NOMBRE / Name: LAURA GIMENA" en la misma línea
+  let nameFound = false;
   
-  for (const pattern of namePatterns) {
-    const match = normalizedFrontText.match(pattern);
-    if (match && match[1]) {
-      let name = match[1].trim();
-      // Limpiar caracteres especiales pero mantener espacios para nombres compuestos
-      name = name.replace(/[^\w\sÁÉÍÓÚÑÜ]/g, '').replace(/\s+/g, ' ').trim();
-      // Validar que no sea el apellido (evitar duplicados)
-      if (name !== data.lastName && name.length > 2 && 
-          !name.includes("DOCUMENTO") && !name.includes("NACIONAL") &&
-          !name.includes("MINISTERIO") && !name.includes("INTERIOR") &&
-          !name.includes("REPUBLICA") && !name.includes("MERCOSUR")) {
-        data.firstName = name;
-        console.log("[Parser] Nombre encontrado:", name);
-        break;
+  // Primero buscar en líneas siguientes a "Nombre / Name"
+  for (let i = 0; i < frontLines.length - 1; i++) {
+    const line = frontLines[i];
+    const upperLine = line.toUpperCase();
+    
+    // Buscar línea que contiene "Nombre" o "Name"
+    if ((upperLine.includes("NOMBRE") || upperLine.includes("NAME")) && 
+        !upperLine.includes("APELLIDO") && !upperLine.includes("SURNAME")) {
+      // La siguiente línea debería ser el nombre
+      const nextLine = frontLines[i + 1];
+      if (nextLine && nextLine.trim().length > 2) {
+        let name = nextLine.trim().toUpperCase();
+        // Validar que sea un nombre válido (solo letras y espacios)
+        if (/^[A-ZÁÉÍÓÚÑÜ\s]+$/.test(name) && 
+            name.length >= 3 && name.length <= 50 &&
+            name !== data.lastName && 
+            !name.includes("DOCUMENTO") && !name.includes("NACIONAL") &&
+            !name.includes("MINISTERIO") && !name.includes("INTERIOR") &&
+            !name.includes("REPUBLICA") && !name.includes("MERCOSUR") &&
+            !name.includes("SEXO") && !name.includes("SEX") &&
+            !name.includes("FECHA") && !name.includes("DATE")) {
+          data.firstName = name;
+          console.log("[Parser] Nombre encontrado (línea siguiente):", name);
+          nameFound = true;
+          break;
+        }
+      }
+    }
+  }
+  
+  // Si no encontramos en línea siguiente, buscar en la misma línea
+  if (!nameFound) {
+    const namePatterns = [
+      /(?:NOMBRE|NAME)(?:\s*\/\s*[A-Z]+)?[:\s]+([A-ZÁÉÍÓÚÑÜ][A-ZÁÉÍÓÚÑÜ\s]{2,30}?)(?:\s*\n|\s*SEXO|\s*SEX|\s*NACIONALIDAD|\s*FECHA|\s*DOCUMENTO|\s*NACIMIENTO|\s*$)/i,
+      /(?:NOMBRE|NAME)(?:\s*\/\s*[A-Z]+)?[:\s]+([A-ZÁÉÍÓÚÑÜ][A-ZÁÉÍÓÚÑÜ\s]{2,30})/i,
+    ];
+    
+    for (const pattern of namePatterns) {
+      const match = normalizedFrontText.match(pattern);
+      if (match && match[1]) {
+        let name = match[1].trim();
+        // Limpiar caracteres especiales pero mantener espacios para nombres compuestos
+        name = name.replace(/[^\w\sÁÉÍÓÚÑÜ]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
+        // Validar que no sea el apellido (evitar duplicados) y que no contenga palabras prohibidas
+        if (name !== data.lastName && name.length > 2 && 
+            !name.includes("DOCUMENTO") && !name.includes("NACIONAL") &&
+            !name.includes("MINISTERIO") && !name.includes("INTERIOR") &&
+            !name.includes("REPUBLICA") && !name.includes("MERCOSUR") &&
+            !name.includes("SEXO") && !name.includes("SEX") &&
+            !name.includes("FECHA") && !name.includes("DATE") &&
+            !name.includes("NOMBRE") && !name.includes("NAME")) {
+          data.firstName = name;
+          console.log("[Parser] Nombre encontrado (misma línea):", name);
+          break;
+        }
       }
     }
   }
 
   // Si no encontramos nombre/apellido con etiquetas, buscar en líneas que parezcan nombres (solo en FRENTE)
-  if (!data.firstName || !data.lastName) {
+  if (!data.firstName && !data.lastName) {
     // Buscar líneas con formato "APELLIDO NOMBRE" o "APELLIDO, NOMBRE"
     // En DNI argentino típicamente: "ORDONÑEZ KRASNOWSKI LAURA GIMENA" o similar
     for (let i = 0; i < Math.min(20, frontLines.length); i++) {
@@ -186,27 +223,67 @@ function parseDNIData(frontText: string, backText: string = ""): {
     'DEC': '12', 'DIC': '12', 'DECEMBER': '12', 'DICIEMBRE': '12',
   };
 
-  // Buscar formato con mes en texto: "13 NOV 1977" o "13 NOV / NOV 1977"
+  // Buscar formato con mes en texto: "13 NOV 1977" o "13 NOV NOV 1977" (formato con mes duplicado)
   // También buscar después de etiquetas: "Fecha de nacimiento / Date of birth: 13 NOV 1977"
-  const datePatternsText = [
-    /(?:FECHA\s+DE\s+NACIMIENTO|DATE\s+OF\s+BIRTH|NACIMIENTO|BIRTH)(?:\s*\/\s*[A-Z\s]+)?[:\s]+(\d{1,2})\s+([A-Z]{3,9})(?:\s*\/\s*[A-Z]{3,9})?\s+(\d{4})/i,
-    /(?:FECHA\s+DE\s+NACIMIENTO|NACIMIENTO)[:\s]+(\d{1,2})\s+([A-Z]{3,9})\s+(\d{4})/i,
-    // Buscar formato libre: "13 NOV 1977" cerca de palabras clave
-    /(\d{1,2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC|ENE|ABR|AGO|SEPT|DIC)\s+(\d{4})/i,
-  ];
+  let dateFound = false;
   
-  for (const pattern of datePatternsText) {
-    const dateMatch = normalizedFrontText.match(pattern);
-    if (dateMatch) {
-      const day = parseInt(dateMatch[1]);
-      const monthStr = dateMatch[2].toUpperCase().substring(0, 3);
-      const year = parseInt(dateMatch[3]);
-      const month = monthNames[monthStr];
-      
-      if (month && day >= 1 && day <= 31 && year >= 1900 && year <= new Date().getFullYear()) {
-        data.birthDate = `${year}-${month}-${String(day).padStart(2, "0")}`;
-        console.log("[Parser] Fecha encontrada (formato texto):", data.birthDate, "de:", dateMatch[0]);
-        break;
+  // Primero buscar en líneas siguientes a "Fecha de nacimiento / Date of birth"
+  for (let i = 0; i < frontLines.length - 1; i++) {
+    const line = frontLines[i];
+    const upperLine = line.toUpperCase();
+    
+    // Buscar línea que contiene "Fecha de nacimiento" o "Date of birth"
+    if (upperLine.includes("FECHA") && upperLine.includes("NACIMIENTO") || 
+        upperLine.includes("DATE") && upperLine.includes("BIRTH")) {
+      // La siguiente línea debería ser la fecha: "13 NOV NOV 1977"
+      const nextLine = frontLines[i + 1];
+      if (nextLine && nextLine.trim()) {
+        const dateLine = nextLine.trim().toUpperCase();
+        // Buscar formato: "13 NOV NOV 1977" o "13 NOV 1977"
+        const dateMatchLine = dateLine.match(/(\d{1,2})\s+([A-Z]{3,9})(?:\s+[A-Z]{3,9})?\s+(\d{4})/);
+        if (dateMatchLine) {
+          const day = parseInt(dateMatchLine[1]);
+          const monthStr = dateMatchLine[2].toUpperCase().substring(0, 3);
+          const year = parseInt(dateMatchLine[3]);
+          const month = monthNames[monthStr];
+          
+          if (month && day >= 1 && day <= 31 && year >= 1900 && year <= new Date().getFullYear()) {
+            data.birthDate = `${year}-${month}-${String(day).padStart(2, "0")}`;
+            console.log("[Parser] Fecha encontrada (línea siguiente):", data.birthDate, "de:", dateMatchLine[0]);
+            dateFound = true;
+            break;
+          }
+        }
+      }
+    }
+  }
+  
+  // Si no encontramos en línea siguiente, buscar en la misma línea o con patrones
+  if (!dateFound) {
+    const datePatternsText = [
+      // Formato con mes duplicado: "13 NOV NOV 1977"
+      /(?:FECHA\s+DE\s+NACIMIENTO|DATE\s+OF\s+BIRTH|NACIMIENTO|BIRTH)(?:\s*\/\s*[A-Z\s]+)?[:\s]+(\d{1,2})\s+([A-Z]{3,9})(?:\s+[A-Z]{3,9})?\s+(\d{4})/i,
+      /(?:FECHA\s+DE\s+NACIMIENTO|NACIMIENTO)[:\s]+(\d{1,2})\s+([A-Z]{3,9})(?:\s+[A-Z]{3,9})?\s+(\d{4})/i,
+      // Formato normal: "13 NOV 1977"
+      /(?:FECHA\s+DE\s+NACIMIENTO|DATE\s+OF\s+BIRTH|NACIMIENTO|BIRTH)(?:\s*\/\s*[A-Z\s]+)?[:\s]+(\d{1,2})\s+([A-Z]{3,9})\s+(\d{4})/i,
+      // Buscar formato libre: "13 NOV 1977" o "13 NOV NOV 1977" cerca de palabras clave
+      /(\d{1,2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC|ENE|ABR|AGO|SEPT|DIC)(?:\s+[A-Z]{3,9})?\s+(\d{4})/i,
+    ];
+    
+    for (const pattern of datePatternsText) {
+      const dateMatch = normalizedFrontText.match(pattern);
+      if (dateMatch) {
+        const day = parseInt(dateMatch[1]);
+        const monthStr = dateMatch[2].toUpperCase().substring(0, 3);
+        const year = parseInt(dateMatch[3]);
+        const month = monthNames[monthStr];
+        
+        if (month && day >= 1 && day <= 31 && year >= 1900 && year <= new Date().getFullYear()) {
+          data.birthDate = `${year}-${month}-${String(day).padStart(2, "0")}`;
+          console.log("[Parser] Fecha encontrada (patrón):", data.birthDate, "de:", dateMatch[0]);
+          dateFound = true;
+          break;
+        }
       }
     }
   }
