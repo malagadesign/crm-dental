@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Patient } from "@prisma/client";
+import { Patient, PatientOrigin } from "@prisma/client";
 
 interface PatientDialogProps {
   open: boolean;
@@ -59,7 +59,17 @@ async function updatePatient(
 
 export function PatientDialog({ open, onOpenChange, patient }: PatientDialogProps) {
   const queryClient = useQueryClient();
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    firstName: string;
+    lastName: string;
+    dni: string;
+    birthDate: string;
+    phone: string;
+    email: string;
+    address: string;
+    origin: PatientOrigin;
+    notes: string;
+  }>({
     firstName: "",
     lastName: "",
     dni: "",
@@ -67,7 +77,7 @@ export function PatientDialog({ open, onOpenChange, patient }: PatientDialogProp
     phone: "",
     email: "",
     address: "",
-    origin: "otro" as const,
+    origin: "otro",
     notes: "",
   });
   const [error, setError] = useState("");
@@ -84,7 +94,7 @@ export function PatientDialog({ open, onOpenChange, patient }: PatientDialogProp
         phone: patient.phone || "",
         email: patient.email || "",
         address: patient.address || "",
-        origin: (patient.origin as any) || "otro",
+        origin: patient.origin || "otro",
         notes: patient.notes || "",
       });
     } else {
@@ -132,7 +142,21 @@ export function PatientDialog({ open, onOpenChange, patient }: PatientDialogProp
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    mutation.mutate(formData);
+    
+    // Convertir formData al formato esperado por Prisma
+    const data: Omit<Patient, "id" | "createdAt" | "updatedAt"> = {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      dni: formData.dni || null,
+      birthDate: formData.birthDate ? new Date(formData.birthDate) : null,
+      phone: formData.phone || null,
+      email: formData.email || null,
+      address: formData.address || null,
+      origin: formData.origin,
+      notes: formData.notes || null,
+    };
+    
+    mutation.mutate(data);
   };
 
   return (
