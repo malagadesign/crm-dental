@@ -73,7 +73,7 @@ export function UserDialog({ open, onOpenChange, user }: UserDialogProps) {
     name: "",
     email: "",
     password: "",
-    role: "secretary",
+    role: "odontologo",
   });
   const [error, setError] = useState("");
 
@@ -83,7 +83,7 @@ export function UserDialog({ open, onOpenChange, user }: UserDialogProps) {
         name: user.name || "",
         email: user.email || "",
         password: "", // No mostrar password existente
-        role: (user.role as string) || "secretary",
+        role: (user.role as string) || "odontologo",
       });
     } else {
       setFormData({
@@ -116,7 +116,7 @@ export function UserDialog({ open, onOpenChange, user }: UserDialogProps) {
         name: "",
         email: "",
         password: "",
-        role: "secretary",
+        role: "odontologo",
       });
       setError("");
     },
@@ -220,7 +220,8 @@ export function UserDialog({ open, onOpenChange, user }: UserDialogProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Odontólogo</SelectItem>
+                  <SelectItem value="admin">Administrador</SelectItem>
+                  <SelectItem value="odontologo">Odontólogo</SelectItem>
                   <SelectItem value="secretary">Secretaria</SelectItem>
                 </SelectContent>
               </Select>

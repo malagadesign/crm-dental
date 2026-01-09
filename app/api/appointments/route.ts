@@ -30,7 +30,13 @@ export async function GET(request: Request) {
       where.clinicId = parseInt(clinicId);
     }
 
-    if (userId) {
+    // Filtrar por rol: odontólogos solo ven sus turnos, admin y secretaria ven todos
+    const userRole = session.user.role;
+    if (userRole === "odontologo" && session.user.id) {
+      // Si es odontólogo, solo mostrar sus turnos
+      where.userId = parseInt(session.user.id);
+    } else if (userId) {
+      // Si es admin o secretaria y se especifica userId, usar ese filtro
       where.userId = parseInt(userId);
     }
 

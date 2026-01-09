@@ -27,7 +27,7 @@ export type {
 };
 
 // User.role es string en Laravel, no enum
-export type UserRole = "admin" | "secretary";
+export type UserRole = "admin" | "secretary" | "odontologo";
 
 export interface AppointmentWithRelations extends Appointment {
   patient: Patient;
