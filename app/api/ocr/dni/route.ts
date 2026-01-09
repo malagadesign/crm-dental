@@ -118,24 +118,43 @@ function parseDNIData(text: string): {
 }
 
 export async function POST(request: Request) {
+  console.log("[OCR DNI] Iniciando procesamiento de DNI...");
+  
   try {
+    console.log("[OCR DNI] Verificando sesión...");
     const session = await getServerSession(authOptions);
+    
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      console.error("[OCR DNI] Error: Sesión no encontrada. Usuario no autenticado.");
+      return NextResponse.json(
+        { error: "Unauthorized. Por favor inicia sesión." },
+        { status: 401 }
+      );
     }
+    
+    console.log("[OCR DNI] Sesión válida. Usuario:", session.user?.email);
 
     const formData = await request.formData();
     const frontFile = formData.get("front") as File;
     const backFile = formData.get("back") as File | null;
 
     if (!frontFile) {
+      console.error("[OCR DNI] Error: No se proporcionó imagen del frente");
       return NextResponse.json(
         { error: "Front image is required" },
         { status: 400 }
       );
     }
 
+    console.log("[OCR DNI] Imágenes recibidas:", {
+      frontName: frontFile.name,
+      frontSize: frontFile.size,
+      backName: backFile?.name || "none",
+      backSize: backFile?.size || 0,
+    });
+
     // Convertir imágenes a base64 para enviar a OCR
+    console.log("[OCR DNI] Convirtiendo imágenes a base64...");
     const frontBuffer = await frontFile.arrayBuffer();
     const frontBase64 = Buffer.from(frontBuffer).toString("base64");
     
@@ -144,51 +163,71 @@ export async function POST(request: Request) {
       const backBuffer = await backFile.arrayBuffer();
       backBase64 = Buffer.from(backBuffer).toString("base64");
     }
-
-    // Por ahora, retornamos un mensaje indicando que se necesita configurar OCR
-    // El usuario puede usar Google Cloud Vision API o Tesseract.js
-    // Por simplicidad, vamos a usar una solución híbrida:
-    // 1. Si hay GOOGLE_CLOUD_VISION_API_KEY, usar Google Cloud Vision
-    // 2. Si no, usar Tesseract.js (requiere instalación)
+    
+    console.log("[OCR DNI] Imágenes convertidas. Tamaños base64:", {
+      front: frontBase64.length,
+      back: backBase64?.length || 0,
+    });
 
     // Opción 1: Google Cloud Vision API
     const apiKey = process.env.GOOGLE_CLOUD_VISION_API_KEY;
     
     if (!apiKey) {
-      console.error("GOOGLE_CLOUD_VISION_API_KEY no está configurada");
+      console.error("[OCR DNI] Error: GOOGLE_CLOUD_VISION_API_KEY no está configurada");
+      console.error("[OCR DNI] Variables de entorno disponibles:", {
+        hasKey: !!process.env.GOOGLE_CLOUD_VISION_API_KEY,
+        keyLength: process.env.GOOGLE_CLOUD_VISION_API_KEY?.length || 0,
+        keyPrefix: process.env.GOOGLE_CLOUD_VISION_API_KEY?.substring(0, 10) || "none",
+      });
       return NextResponse.json(
         {
           error:
-            "OCR no configurado. Por favor configura GOOGLE_CLOUD_VISION_API_KEY en las variables de entorno de Vercel.",
+            "OCR no configurado. Por favor configura GOOGLE_CLOUD_VISION_API_KEY en las variables de entorno (.env.local para desarrollo o Vercel para producción).",
         },
         { status: 501 }
       );
     }
+    
+    console.log("[OCR DNI] API Key encontrada. Longitud:", apiKey.length, "Prefijo:", apiKey.substring(0, 10));
 
     try {
+      const requestBody = {
+        requests: [
+          {
+            image: { content: frontBase64 },
+            features: [{ type: "TEXT_DETECTION" }],
+          },
+          ...(backBase64
+            ? [
+                {
+                  image: { content: backBase64 },
+                  features: [{ type: "TEXT_DETECTION" }],
+                },
+              ]
+            : []),
+        ],
+      };
+      
+      console.log("[OCR DNI] Enviando solicitud a Google Vision API...", {
+        url: "https://vision.googleapis.com/v1/images:annotate",
+        requestsCount: requestBody.requests.length,
+        requestSize: JSON.stringify(requestBody).length,
+      });
+      
       const visionResponse = await fetch(
         `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            requests: [
-              {
-                image: { content: frontBase64 },
-                features: [{ type: "TEXT_DETECTION" }],
-              },
-              ...(backBase64
-                ? [
-                    {
-                      image: { content: backBase64 },
-                      features: [{ type: "TEXT_DETECTION" }],
-                    },
-                  ]
-                : []),
-            ],
-          }),
+          body: JSON.stringify(requestBody),
         }
       );
+
+      console.log("[OCR DNI] Respuesta de Google Vision API:", {
+        status: visionResponse.status,
+        statusText: visionResponse.statusText,
+        ok: visionResponse.ok,
+      });
 
       if (!visionResponse.ok) {
         let errorText = "";
@@ -196,18 +235,22 @@ export async function POST(request: Request) {
         
         try {
           errorText = await visionResponse.text();
+          console.log("[OCR DNI] Error text raw:", errorText.substring(0, 500));
           errorJson = JSON.parse(errorText);
-        } catch {
+        } catch (parseError) {
+          console.error("[OCR DNI] Error parseando respuesta de error:", parseError);
           // Si no es JSON, usar el texto tal cual
         }
         
         const errorMessage = errorJson?.error?.message || errorText || visionResponse.statusText;
         
-        console.error("Google Vision API error:", {
+        console.error("[OCR DNI] Google Vision API error completo:", {
           status: visionResponse.status,
           statusText: visionResponse.statusText,
           error: errorMessage,
           fullError: errorJson || errorText,
+          errorCode: errorJson?.error?.code,
+          errorStatus: errorJson?.error?.status,
         });
         
         // Si es un error de autenticación, dar un mensaje más específico
@@ -254,12 +297,19 @@ Si prefieres usar las credenciales de tu cuenta de servicio, configura GOOGLE_AP
 
       const visionData = await visionResponse.json();
       
+      console.log("[OCR DNI] Respuesta de Google Vision API parseada:", {
+        hasResponses: !!visionData.responses,
+        responsesCount: visionData.responses?.length || 0,
+        firstResponseHasError: !!visionData.responses?.[0]?.error,
+      });
+      
       // Verificar si hay errores en la respuesta
       if (visionData.responses && visionData.responses[0]?.error) {
-        console.error("Google Vision API response error:", visionData.responses[0].error);
+        console.error("[OCR DNI] Error en respuesta de Google Vision API:", visionData.responses[0].error);
         return NextResponse.json(
           {
             error: `Error de Google Vision API: ${visionData.responses[0].error.message || "Error desconocido"}`,
+            details: visionData.responses[0].error,
           },
           { status: 400 }
         );
@@ -268,14 +318,27 @@ Si prefieres usar las credenciales de tu cuenta de servicio, configura GOOGLE_AP
       let fullText = "";
 
       if (visionData.responses) {
-        visionData.responses.forEach((response: any) => {
+        visionData.responses.forEach((response: any, index: number) => {
           if (response.fullTextAnnotation?.text) {
+            console.log(`[OCR DNI] Texto extraído de respuesta ${index + 1}:`, response.fullTextAnnotation.text.substring(0, 200) + "...");
             fullText += response.fullTextAnnotation.text + "\n";
+          } else {
+            console.warn(`[OCR DNI] Respuesta ${index + 1} no contiene texto.`, {
+              hasError: !!response.error,
+              error: response.error,
+              hasText: !!response.fullTextAnnotation?.text,
+            });
           }
         });
       }
 
+      console.log("[OCR DNI] Texto completo extraído:", {
+        length: fullText.length,
+        preview: fullText.substring(0, 300),
+      });
+
       if (!fullText.trim()) {
+        console.warn("[OCR DNI] No se pudo extraer texto de las imágenes");
         return NextResponse.json(
           {
             error: "No se pudo extraer texto de las imágenes. Por favor verifica que las imágenes sean claras y legibles.",
@@ -284,21 +347,36 @@ Si prefieres usar las credenciales de tu cuenta de servicio, configura GOOGLE_AP
         );
       }
 
+      console.log("[OCR DNI] Parseando datos del DNI...");
       const extractedData = parseDNIData(fullText);
+      console.log("[OCR DNI] Datos extraídos:", extractedData);
+      
       return NextResponse.json(extractedData);
     } catch (error: any) {
-      console.error("Error procesando con Google Vision API:", error);
+      console.error("[OCR DNI] Error procesando con Google Vision API:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      });
       return NextResponse.json(
         {
           error: `Error al procesar las imágenes: ${error.message || "Error desconocido"}`,
+          details: process.env.NODE_ENV === "development" ? error.stack : undefined,
         },
         { status: 500 }
       );
     }
-  } catch (error) {
-    console.error("Error processing DNI:", error);
+  } catch (error: any) {
+    console.error("[OCR DNI] Error general procesando DNI:", {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+    });
     return NextResponse.json(
-      { error: "Error processing DNI images" },
+      { 
+        error: "Error processing DNI images",
+        details: process.env.NODE_ENV === "development" ? error.message : undefined,
+      },
       { status: 500 }
     );
   }
