@@ -55,16 +55,19 @@ function parseDNIData(frontText: string, backText: string = ""): {
   // Primero buscar en líneas siguientes a "Nombre / Name"
   for (let i = 0; i < frontLines.length - 1; i++) {
     const line = frontLines[i];
-    const upperLine = line.toUpperCase();
+    const upperLine = line.toUpperCase().trim();
     
-    // Buscar línea que contiene "Nombre" o "Name"
-    if ((upperLine.includes("NOMBRE") || upperLine.includes("NAME")) && 
+    // Buscar línea que contiene exactamente "Nombre / Name" o "Nombre/Name" o solo "Nombre" o "Name"
+    // Pero NO "Apellido" ni "Surname"
+    if ((upperLine === "NOMBRE" || upperLine === "NAME" || 
+         upperLine === "NOMBRE / NAME" || upperLine.includes("NOMBRE") && upperLine.includes("NAME") ||
+         upperLine.startsWith("NOMBRE") || upperLine.startsWith("NAME")) &&
         !upperLine.includes("APELLIDO") && !upperLine.includes("SURNAME")) {
       // La siguiente línea debería ser el nombre
       const nextLine = frontLines[i + 1];
       if (nextLine && nextLine.trim().length > 2) {
         let name = nextLine.trim().toUpperCase();
-        // Validar que sea un nombre válido (solo letras y espacios)
+        // Validar que sea un nombre válido (solo letras y espacios, sin números)
         if (/^[A-ZÁÉÍÓÚÑÜ\s]+$/.test(name) && 
             name.length >= 3 && name.length <= 50 &&
             name !== data.lastName && 
@@ -72,9 +75,11 @@ function parseDNIData(frontText: string, backText: string = ""): {
             !name.includes("MINISTERIO") && !name.includes("INTERIOR") &&
             !name.includes("REPUBLICA") && !name.includes("MERCOSUR") &&
             !name.includes("SEXO") && !name.includes("SEX") &&
-            !name.includes("FECHA") && !name.includes("DATE")) {
+            !name.includes("FECHA") && !name.includes("DATE") &&
+            !name.includes("NOMBRE") && !name.includes("NAME") &&
+            !name.includes("DOCUMENTO") && !name.match(/\d/)) {
           data.firstName = name;
-          console.log("[Parser] Nombre encontrado (línea siguiente):", name);
+          console.log("[Parser] Nombre encontrado (línea siguiente):", name, "después de:", line);
           nameFound = true;
           break;
         }
@@ -230,22 +235,27 @@ function parseDNIData(frontText: string, backText: string = ""): {
   // Primero buscar en líneas siguientes a "Fecha de nacimiento / Date of birth"
   for (let i = 0; i < frontLines.length - 1; i++) {
     const line = frontLines[i];
-    const upperLine = line.toUpperCase();
+    const upperLine = line.toUpperCase().trim();
     
     // Buscar línea que contiene "Fecha de nacimiento" o "Date of birth"
-    if (upperLine.includes("FECHA") && upperLine.includes("NACIMIENTO") || 
-        upperLine.includes("DATE") && upperLine.includes("BIRTH")) {
-      // La siguiente línea debería ser la fecha: "13 NOV NOV 1977"
+    if ((upperLine.includes("FECHA") && upperLine.includes("NACIMIENTO")) || 
+        (upperLine.includes("DATE") && upperLine.includes("BIRTH")) ||
+        (upperLine.includes("FECHA") && upperLine.includes("BIRTH"))) {
+      // La siguiente línea debería ser la fecha: "13 NOV NOV 1977" o "13 NOV 1977"
       const nextLine = frontLines[i + 1];
       if (nextLine && nextLine.trim()) {
         const dateLine = nextLine.trim().toUpperCase();
+        console.log("[Parser] Buscando fecha en línea:", dateLine);
         // Buscar formato: "13 NOV NOV 1977" o "13 NOV 1977"
+        // El patrón debe capturar: día, mes (puede estar duplicado), año
         const dateMatchLine = dateLine.match(/(\d{1,2})\s+([A-Z]{3,9})(?:\s+[A-Z]{3,9})?\s+(\d{4})/);
         if (dateMatchLine) {
           const day = parseInt(dateMatchLine[1]);
           const monthStr = dateMatchLine[2].toUpperCase().substring(0, 3);
           const year = parseInt(dateMatchLine[3]);
           const month = monthNames[monthStr];
+          
+          console.log("[Parser] Fecha parseada:", { day, monthStr, month, year });
           
           if (month && day >= 1 && day <= 31 && year >= 1900 && year <= new Date().getFullYear()) {
             data.birthDate = `${year}-${month}-${String(day).padStart(2, "0")}`;
