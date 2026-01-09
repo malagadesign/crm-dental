@@ -14,106 +14,220 @@ function parseDNIData(text: string): {
   const normalizedText = text.toUpperCase();
   const lines = text.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
 
-  // Buscar DNI (número de documento) - formato típico: DNI: 12345678 o solo el número
-  // Buscar números de 7 u 8 dígitos que no sean fechas
+  console.log("[Parser] Texto completo recibido:", text.substring(0, 1000));
+  console.log("[Parser] Líneas encontradas:", lines.length);
+
+  // 1. BUSCAR APELLIDO (SURNAME) - Buscar después de etiquetas como "APELLIDO", "SURNAME"
+  const surnamePatterns = [
+    /(?:APELLIDO|SURNAME)[:\/\s]*([A-ZÁÉÍÓÚÑÜ\s]+?)(?:\s*\n|\s*NOMBRE|\s*NAME|\s*$)/i,
+    /(?:APELLIDO|SURNAME)[:\/\s]*([A-ZÁÉÍÓÚÑÜ\s]{3,})/i,
+  ];
+  
+  for (const pattern of surnamePatterns) {
+    const match = normalizedText.match(pattern);
+    if (match && match[1]) {
+      const surname = match[1].trim().replace(/[^\w\sÁÉÍÓÚÑÜ]/g, '').trim();
+      if (surname.length > 2 && !surname.includes("DOCUMENTO") && !surname.includes("NACIONAL")) {
+        data.lastName = surname;
+        console.log("[Parser] Apellido encontrado:", surname);
+        break;
+      }
+    }
+  }
+
+  // 2. BUSCAR NOMBRE (NAME) - Buscar después de etiquetas como "NOMBRE", "NAME"
+  const namePatterns = [
+    /(?:NOMBRE|NAME)[:\/\s]*([A-ZÁÉÍÓÚÑÜ\s]+?)(?:\s*\n|\s*SEXO|\s*SEX|\s*NACIONALIDAD|\s*FECHA|\s*$)/i,
+    /(?:NOMBRE|NAME)[:\/\s]*([A-ZÁÉÍÓÚÑÜ\s]{3,})/i,
+  ];
+  
+  for (const pattern of namePatterns) {
+    const match = normalizedText.match(pattern);
+    if (match && match[1]) {
+      const name = match[1].trim().replace(/[^\w\sÁÉÍÓÚÑÜ]/g, '').trim();
+      if (name.length > 2 && !name.includes("DOCUMENTO") && !name.includes("NACIONAL")) {
+        data.firstName = name;
+        console.log("[Parser] Nombre encontrado:", name);
+        break;
+      }
+    }
+  }
+
+  // Si no encontramos nombre/apellido con etiquetas, buscar en líneas que parezcan nombres
+  if (!data.firstName || !data.lastName) {
+    // Buscar líneas con formato "APELLIDO NOMBRE" o "APELLIDO, NOMBRE"
+    // En DNI argentino típicamente: "ORDONÑEZ KRASNOWSKI LAURA GIMENA" o similar
+    for (let i = 0; i < Math.min(15, lines.length); i++) {
+      const line = lines[i];
+      const upperLine = line.toUpperCase();
+      
+      // Saltar líneas que son claramente no nombres
+      if (upperLine.includes("DOCUMENTO") || upperLine.includes("NACIONAL") || 
+          upperLine.includes("IDENTIDAD") || upperLine.includes("REPUBLICA") ||
+          upperLine.includes("MERCOSUR") || upperLine.includes("REGISTRO") ||
+          upperLine.includes("MINISTERIO") || upperLine.includes("DEL INTERIOR") ||
+          /^\d+$/.test(line) || upperLine.includes("ARGENTINA") || 
+          upperLine.includes("TRAMITE") || upperLine.includes("SEXO") ||
+          upperLine.includes("FECHA") || upperLine.includes("EMISION")) {
+        continue;
+      }
+      
+      // Buscar formato "APELLIDO, NOMBRE"
+      const nameMatchComma = line.match(/^([A-ZÁÉÍÓÚÑÜ\s]+),\s*([A-ZÁÉÍÓÚÑÜ\s]+)$/i);
+      if (nameMatchComma && nameMatchComma[1].trim().length > 2 && nameMatchComma[2].trim().length > 2) {
+        if (!data.lastName) data.lastName = nameMatchComma[1].trim();
+        if (!data.firstName) data.firstName = nameMatchComma[2].trim();
+        console.log("[Parser] Nombre completo encontrado (con coma):", data.lastName, data.firstName);
+        break;
+      }
+      
+      // Buscar formato "APELLIDO NOMBRE" (múltiples palabras, todas mayúsculas)
+      // En DNI argentino típicamente: "ORDONÑEZ KRASNOWSKI LAURA GIMENA" (4 palabras)
+      // O "ORDONÑEZ LAURA" (2 palabras)
+      const words = line.split(/\s+/).filter(w => w.length > 0 && /^[A-ZÁÉÍÓÚÑÜ]+$/i.test(w) && w.length > 1);
+      if (words.length >= 2 && words.length <= 6) {
+        // Si hay 2-3 palabras: típicamente "APELLIDO NOMBRE" o "APELLIDO1 APELLIDO2 NOMBRE"
+        // Si hay 4+ palabras: típicamente "APELLIDO1 APELLIDO2 NOMBRE1 NOMBRE2"
+        if (!data.lastName || !data.firstName) {
+          if (words.length === 2) {
+            if (!data.lastName) data.lastName = words[0];
+            if (!data.firstName) data.firstName = words[1];
+          } else if (words.length === 3) {
+            // Asumir: "APELLIDO1 APELLIDO2 NOMBRE"
+            if (!data.lastName) data.lastName = words.slice(0, 2).join(" ");
+            if (!data.firstName) data.firstName = words[2];
+          } else if (words.length === 4) {
+            // Típicamente: "APELLIDO1 APELLIDO2 NOMBRE1 NOMBRE2"
+            if (!data.lastName) data.lastName = words.slice(0, 2).join(" ");
+            if (!data.firstName) data.firstName = words.slice(2).join(" ");
+          } else {
+            // 5+ palabras: primeros 2-3 son apellidos, últimos 1-2 son nombres
+            if (!data.lastName) data.lastName = words.slice(0, Math.ceil(words.length / 2)).join(" ");
+            if (!data.firstName) data.firstName = words.slice(Math.ceil(words.length / 2)).join(" ");
+          }
+          console.log("[Parser] Nombre completo encontrado (sin coma):", data.lastName, data.firstName);
+          break;
+        }
+      }
+    }
+  }
+
+  // 3. BUSCAR DNI - Buscar después de etiquetas como "DOCUMENTO", "DOCUMENT" o formato con puntos
   const dniPatterns = [
-    /DNI[:\s]*(\d{7,8})/i,
-    /DOC[:\s]*(\d{7,8})/i,
-    /\b(\d{7,8})\b/,
+    /(?:DOCUMENTO|DOCUMENT|DNI)[:\/\s]*([\d\.]{7,12})/i,
+    /(?:DOCUMENTO|DOCUMENT)[:\/\s]*(\d{1,2}\.?\d{3}\.?\d{3})/i,
+    /\b(\d{1,2}\.\d{3}\.\d{3})\b/,  // Formato 26.200.553
+    /\b(\d{8})\b/,  // Formato sin puntos
   ];
   
   for (const pattern of dniPatterns) {
     const match = normalizedText.match(pattern);
-    if (match) {
-      const dni = match[1];
-      // Verificar que no sea parte de una fecha
-      if (!normalizedText.includes(`/${dni}/`) && !normalizedText.includes(`-${dni}-`)) {
-        data.dni = dni;
-        break;
+    if (match && match[1]) {
+      let dni = match[1].replace(/\./g, ''); // Remover puntos
+      // Validar que sea un número de 7-8 dígitos
+      if (dni.length >= 7 && dni.length <= 8 && /^\d+$/.test(dni)) {
+        // Verificar que no sea parte de una fecha o CUIL
+        if (!normalizedText.includes(`CUIL`) || !normalizedText.includes(`CUIL${dni}`)) {
+          data.dni = dni;
+          console.log("[Parser] DNI encontrado:", dni);
+          break;
+        }
       }
     }
   }
 
-  // Buscar nombres (generalmente en las primeras líneas)
-  // Formato típico del DNI argentino: APELLIDO, NOMBRE o APELLIDO NOMBRE
-  for (let i = 0; i < Math.min(10, lines.length); i++) {
-    const line = lines[i];
-    const upperLine = line.toUpperCase();
-    
-    // Saltar líneas que son claramente no nombres
-    if (upperLine.includes("DNI") || upperLine.includes("DOCUMENTO") || 
-        upperLine.includes("NACIONAL") || upperLine.includes("IDENTIDAD") ||
-        /^\d+$/.test(line) || upperLine.includes("ARGENTINA")) {
-      continue;
-    }
-    
-    // Buscar formato "APELLIDO, NOMBRE"
-    const nameMatchComma = line.match(/^([A-ZÁÉÍÓÚÑÜ\s]+),\s*([A-ZÁÉÍÓÚÑÜ\s]+)$/i);
-    if (nameMatchComma && nameMatchComma[1].length > 2 && nameMatchComma[2].length > 2) {
-      data.lastName = nameMatchComma[1].trim();
-      data.firstName = nameMatchComma[2].trim();
-      break;
-    }
-    
-    // Buscar formato "APELLIDO NOMBRE" (sin coma)
-    // Generalmente el apellido son las primeras palabras y el nombre la última
-    const words = line.split(/\s+/).filter(w => w.length > 0);
-    if (words.length >= 2 && words.every((w) => /^[A-ZÁÉÍÓÚÑÜ]+$/i.test(w))) {
-      // Si hay 2 palabras, primera es apellido, segunda es nombre
-      // Si hay más, las últimas 1-2 son nombre, el resto apellido
-      if (words.length === 2) {
-        data.lastName = words[0];
-        data.firstName = words[1];
-        break;
-      } else if (words.length >= 3) {
-        // Última palabra es nombre, el resto apellido
-        data.lastName = words.slice(0, -1).join(" ");
-        data.firstName = words[words.length - 1];
-        break;
-      }
-    }
-  }
+  // 4. BUSCAR FECHA DE NACIMIENTO - Formato con meses en texto (NOV 1977) o numérico
+  const monthNames: { [key: string]: string } = {
+    'JAN': '01', 'ENE': '01', 'JANUARY': '01', 'ENERO': '01',
+    'FEB': '02', 'FEBRUARY': '02', 'FEBRERO': '02',
+    'MAR': '03', 'MARCH': '03', 'MARZO': '03',
+    'APR': '04', 'ABR': '04', 'APRIL': '04', 'ABRIL': '04',
+    'MAY': '05', 'MAYO': '05',
+    'JUN': '06', 'JUNE': '06', 'JUNIO': '06',
+    'JUL': '07', 'JULY': '07', 'JULIO': '07',
+    'AUG': '08', 'AGO': '08', 'AUGUST': '08', 'AGOSTO': '08',
+    'SEP': '09', 'SEPT': '09', 'SEPTEMBER': '09', 'SEPTIEMBRE': '09',
+    'OCT': '10', 'OCTOBER': '10', 'OCTUBRE': '10',
+    'NOV': '11', 'NOVEMBER': '11', 'NOVIEMBRE': '11',
+    'DEC': '12', 'DIC': '12', 'DECEMBER': '12', 'DICIEMBRE': '12',
+  };
 
-  // Buscar fecha de nacimiento (formato DD/MM/YYYY o DD-MM-YYYY)
-  // Buscar patrones de fecha que no sean parte de otros números
-  const datePatterns = [
-    /\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b/,
-    /\b(\d{2})[\/\-](\d{2})[\/\-](\d{4})\b/,
-  ];
+  // Buscar formato con mes en texto: "13 NOV 1977" o "13 NOV / NOV 1977"
+  const datePatternText = /(?:FECHA\s+DE\s+NACIMIENTO|DATE\s+OF\s+BIRTH|NACIMIENTO|BIRTH)[:\/\s]*(\d{1,2})\s+([A-Z]{3,9})(?:\s*\/\s*[A-Z]{3,9})?\s+(\d{4})/i;
+  let dateMatch = normalizedText.match(datePatternText);
   
-  for (const pattern of datePatterns) {
-    const match = text.match(pattern);
-    if (match) {
-      const day = parseInt(match[1]);
-      const month = parseInt(match[2]);
-      const year = parseInt(match[3]);
+  if (dateMatch) {
+    const day = parseInt(dateMatch[1]);
+    const monthStr = dateMatch[2].toUpperCase().substring(0, 3);
+    const year = parseInt(dateMatch[3]);
+    const month = monthNames[monthStr] || monthNames[dateMatch[2].toUpperCase()];
+    
+    if (month && day >= 1 && day <= 31 && year >= 1900 && year <= new Date().getFullYear()) {
+      data.birthDate = `${year}-${month}-${String(day).padStart(2, "0")}`;
+      console.log("[Parser] Fecha encontrada (formato texto):", data.birthDate);
+    }
+  } else {
+    // Buscar formato numérico: "13/11/1977" o "13-11-1977"
+    const datePatternNumeric = /(?:FECHA\s+DE\s+NACIMIENTO|DATE\s+OF\s+BIRTH|NACIMIENTO)[:\/\s]*(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/i;
+    dateMatch = normalizedText.match(datePatternNumeric);
+    
+    if (dateMatch) {
+      const day = parseInt(dateMatch[1]);
+      const month = parseInt(dateMatch[2]);
+      const year = parseInt(dateMatch[3]);
       
-      // Validar que sea una fecha razonable
       if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900 && year <= new Date().getFullYear()) {
         data.birthDate = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        console.log("[Parser] Fecha encontrada (formato numérico):", data.birthDate);
+      }
+    }
+  }
+
+  // 5. BUSCAR DIRECCIÓN (DOMICILIO) - Buscar después de "DOMICILIO" o en el dorso
+  const addressPatterns = [
+    /(?:DOMICILIO|ADDRESS)[:\s]+([A-Z0-9\s\-\.,]+?)(?:\s*\n|\s*LUGAR|\s*CUIL|\s*$)/i,
+    /(?:DOMICILIO|ADDRESS)[:\s]+(.{10,100})/i,
+  ];
+  
+  for (const pattern of addressPatterns) {
+    const match = normalizedText.match(pattern);
+    if (match && match[1]) {
+      let address = match[1].trim();
+      // Limpiar caracteres extraños al inicio/final
+      address = address.replace(/^[^\w]+|[^\w]+$/g, '').trim();
+      if (address.length > 5 && !address.includes("TRAMITE") && !address.includes("OF. IDENT")) {
+        data.address = address;
+        console.log("[Parser] Dirección encontrada:", address);
         break;
       }
     }
   }
 
-  // Buscar dirección (generalmente contiene palabras clave)
-  const addressKeywords = ["CALLE", "AV", "AVENIDA", "NRO", "N°", "NUMERO", "DEPTO", "PISO", "CP", "CODIGO POSTAL"];
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const upperLine = line.toUpperCase();
-    
-    // Buscar líneas que contengan palabras clave de dirección
-    if (addressKeywords.some((keyword) => upperLine.includes(keyword))) {
-      // Tomar la línea completa y posiblemente la siguiente
-      let address = line;
-      if (i + 1 < lines.length && lines[i + 1].length > 5) {
-        address += ", " + lines[i + 1];
+  // Si no encontramos dirección con etiqueta, buscar líneas que parezcan direcciones
+  if (!data.address) {
+    const addressKeywords = ["CALLE", "AV", "AVENIDA", "BOUCHARD", "MORENO", "BUENOS AIRES"];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const upperLine = line.toUpperCase();
+      
+      if (addressKeywords.some((keyword) => upperLine.includes(keyword))) {
+        // Buscar la línea completa y las siguientes si contienen números y guiones
+        let address = line;
+        // Si la siguiente línea también parece parte de la dirección, agregarla
+        if (i + 1 < lines.length && 
+            (lines[i + 1].match(/[A-Z]+\s*-\s*[A-Z]+/) || lines[i + 1].match(/\d+/))) {
+          address += " - " + lines[i + 1];
+        }
+        if (address.length > 10 && !address.includes("TRAMITE")) {
+          data.address = address;
+          console.log("[Parser] Dirección encontrada (por keywords):", address);
+          break;
+        }
       }
-      data.address = address;
-      break;
     }
   }
 
+  console.log("[Parser] Datos finales extraídos:", data);
   return data;
 }
 
