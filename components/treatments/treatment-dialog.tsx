@@ -21,9 +21,11 @@ interface TreatmentDialogProps {
   treatment: Treatment | null;
 }
 
-async function createTreatment(
-  data: Omit<Treatment, "id" | "createdAt" | "updatedAt">
-) {
+type TreatmentInput = Omit<Treatment, "id" | "createdAt" | "updatedAt" | "price"> & {
+  price: number;
+};
+
+async function createTreatment(data: TreatmentInput) {
   const response = await fetch("/api/treatments", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -33,10 +35,7 @@ async function createTreatment(
   return response.json();
 }
 
-async function updateTreatment(
-  id: number,
-  data: Omit<Treatment, "id" | "createdAt" | "updatedAt">
-) {
+async function updateTreatment(id: number, data: TreatmentInput) {
   const response = await fetch(`/api/treatments/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -81,7 +80,7 @@ export function TreatmentDialog({
   }, [treatment, open]);
 
   const mutation = useMutation({
-    mutationFn: (data: Omit<Treatment, "id" | "createdAt" | "updatedAt">) =>
+    mutationFn: (data: TreatmentInput) =>
       treatment
         ? updateTreatment(treatment.id, data)
         : createTreatment(data),
