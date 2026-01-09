@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
 // Función para extraer datos del texto OCR del DNI argentino
-function parseDNIData(text: string): {
+function parseDNIData(frontText: string, backText: string = ""): {
   firstName?: string;
   lastName?: string;
   dni?: string;
@@ -11,28 +11,35 @@ function parseDNIData(text: string): {
   address?: string;
 } {
   const data: any = {};
-  const normalizedText = text.toUpperCase();
-  const lines = text.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+  const normalizedFrontText = frontText.toUpperCase();
+  const normalizedBackText = backText.toUpperCase();
+  const frontLines = frontText.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+  const backLines = backText.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
 
-  console.log("[Parser] Texto completo recibido:", text.substring(0, 1000));
-  console.log("[Parser] Líneas encontradas:", lines.length);
+  console.log("[Parser] Texto del FRENTE recibido:", frontText.substring(0, 1000));
+  console.log("[Parser] Líneas del frente encontradas:", frontLines.length);
+  if (backText) {
+    console.log("[Parser] Texto del DORSO recibido:", backText.substring(0, 500));
+    console.log("[Parser] Líneas del dorso encontradas:", backLines.length);
+  }
 
-  // 1. BUSCAR APELLIDO (SURNAME) - Buscar después de etiquetas como "APELLIDO", "SURNAME"
+  // 1. BUSCAR APELLIDO (SURNAME) - Solo en el FRENTE
   // Formato típico: "APELLIDO / Surname: ORDOÑEZ KRASNOWSKI" o "APELLIDO: ORDOÑEZ KRASNOWSKI"
   const surnamePatterns = [
-    /(?:APELLIDO|SURNAME)(?:\s*\/\s*[A-Z]+)?[:\s]+([A-ZÁÉÍÓÚÑÜ\s]+?)(?:\s*\n|\s*NOMBRE|\s*NAME|\s*SEXO|\s*SEX|\s*$)/i,
-    /(?:APELLIDO|SURNAME)(?:\s*\/\s*[A-Z]+)?[:\s]+([A-ZÁÉÍÓÚÑÜ\s]{3,30})/i,
+    /(?:APELLIDO|SURNAME)(?:\s*\/\s*[A-Z]+)?[:\s]+([A-ZÁÉÍÓÚÑÜ][A-ZÁÉÍÓÚÑÜ\s]{2,30}?)(?:\s*\n|\s*NOMBRE|\s*NAME|\s*SEXO|\s*SEX|\s*$)/i,
+    /(?:APELLIDO|SURNAME)(?:\s*\/\s*[A-Z]+)?[:\s]+([A-ZÁÉÍÓÚÑÜ][A-ZÁÉÍÓÚÑÜ\s]{2,30})/i,
   ];
   
   for (const pattern of surnamePatterns) {
-    const match = normalizedText.match(pattern);
+    const match = normalizedFrontText.match(pattern);
     if (match && match[1]) {
       let surname = match[1].trim();
       // Limpiar caracteres especiales pero mantener espacios para apellidos compuestos
       surname = surname.replace(/[^\w\sÁÉÍÓÚÑÜ]/g, '').replace(/\s+/g, ' ').trim();
       if (surname.length > 2 && 
           !surname.includes("DOCUMENTO") && !surname.includes("NACIONAL") &&
-          !surname.includes("MINISTERIO") && !surname.includes("INTERIOR")) {
+          !surname.includes("MINISTERIO") && !surname.includes("INTERIOR") &&
+          !surname.includes("REPUBLICA") && !surname.includes("MERCOSUR")) {
         data.lastName = surname;
         console.log("[Parser] Apellido encontrado:", surname);
         break;
@@ -40,22 +47,26 @@ function parseDNIData(text: string): {
     }
   }
 
-  // 2. BUSCAR NOMBRE (NAME) - Buscar después de etiquetas como "NOMBRE", "NAME"
+  // 2. BUSCAR NOMBRE (NAME) - Solo en el FRENTE
   // Formato típico: "NOMBRE / Name: LAURA GIMENA" o "NOMBRE: LAURA GIMENA"
   const namePatterns = [
-    /(?:NOMBRE|NAME)(?:\s*\/\s*[A-Z]+)?[:\s]+([A-ZÁÉÍÓÚÑÜ\s]+?)(?:\s*\n|\s*SEXO|\s*SEX|\s*NACIONALIDAD|\s*FECHA|\s*DOCUMENTO|\s*$)/i,
-    /(?:NOMBRE|NAME)(?:\s*\/\s*[A-Z]+)?[:\s]+([A-ZÁÉÍÓÚÑÜ\s]{3,30})/i,
+    /(?:NOMBRE|NAME)(?:\s*\/\s*[A-Z]+)?[:\s]+([A-ZÁÉÍÓÚÑÜ][A-ZÁÉÍÓÚÑÜ\s]{2,30}?)(?:\s*\n|\s*SEXO|\s*SEX|\s*NACIONALIDAD|\s*FECHA|\s*DOCUMENTO|\s*NACIMIENTO|\s*$)/i,
+    /(?:NOMBRE|NAME)(?:\s*\/\s*[A-Z]+)?[:\s]+([A-ZÁÉÍÓÚÑÜ][A-ZÁÉÍÓÚÑÜ\s]{2,30})/i,
+    // También buscar en líneas que contengan "NOMBRE" seguido de texto
+    /NOMBRE\s+([A-ZÁÉÍÓÚÑÜ][A-ZÁÉÍÓÚÑÜ\s]{2,30})/i,
   ];
   
   for (const pattern of namePatterns) {
-    const match = normalizedText.match(pattern);
+    const match = normalizedFrontText.match(pattern);
     if (match && match[1]) {
       let name = match[1].trim();
       // Limpiar caracteres especiales pero mantener espacios para nombres compuestos
       name = name.replace(/[^\w\sÁÉÍÓÚÑÜ]/g, '').replace(/\s+/g, ' ').trim();
-      if (name.length > 2 && 
+      // Validar que no sea el apellido (evitar duplicados)
+      if (name !== data.lastName && name.length > 2 && 
           !name.includes("DOCUMENTO") && !name.includes("NACIONAL") &&
-          !name.includes("MINISTERIO") && !name.includes("INTERIOR")) {
+          !name.includes("MINISTERIO") && !name.includes("INTERIOR") &&
+          !name.includes("REPUBLICA") && !name.includes("MERCOSUR")) {
         data.firstName = name;
         console.log("[Parser] Nombre encontrado:", name);
         break;
@@ -63,12 +74,12 @@ function parseDNIData(text: string): {
     }
   }
 
-  // Si no encontramos nombre/apellido con etiquetas, buscar en líneas que parezcan nombres
+  // Si no encontramos nombre/apellido con etiquetas, buscar en líneas que parezcan nombres (solo en FRENTE)
   if (!data.firstName || !data.lastName) {
     // Buscar líneas con formato "APELLIDO NOMBRE" o "APELLIDO, NOMBRE"
     // En DNI argentino típicamente: "ORDONÑEZ KRASNOWSKI LAURA GIMENA" o similar
-    for (let i = 0; i < Math.min(15, lines.length); i++) {
-      const line = lines[i];
+    for (let i = 0; i < Math.min(20, frontLines.length); i++) {
+      const line = frontLines[i];
       const upperLine = line.toUpperCase();
       
       // Saltar líneas que son claramente no nombres
@@ -122,36 +133,44 @@ function parseDNIData(text: string): {
     }
   }
 
-  // 3. BUSCAR DNI - Buscar después de etiquetas como "DOCUMENTO", "DOCUMENT" o formato con puntos
+  // 3. BUSCAR DNI - Solo en el FRENTE
   // Formato típico: "Documento / Document: 26.200.553" o "26.200.553"
   const dniPatterns = [
     /(?:DOCUMENTO|DOCUMENT|DNI)(?:\s*\/\s*[A-Z]+)?[:\s]+(\d{1,2}\.?\d{3}\.?\d{3})/i,
-    /(?:DOCUMENTO|DOCUMENT|DNI)(?:\s*\/\s*[A-Z]+)?[:\s]+([\d\.]{7,12})/i,
-    /\b(\d{1,2}\.\d{3}\.\d{3})\b/,  // Formato 26.200.553 (con puntos)
-    /(?:^|\s)(\d{8})(?:\s|$)/,  // Formato sin puntos (8 dígitos, palabra completa)
+    /(?:DOCUMENTO|DOCUMENT)(?:\s*\/\s*[A-Z]+)?[:\s]+([\d\.]{7,12})/i,
+    // Buscar número con puntos: 26.200.553 o 26200553
+    /\b(\d{1,2}\.\d{3}\.\d{3})\b/,
+    // Buscar después de la palabra "Documento" en cualquier formato
+    /DOCUMENTO[^\d]*(\d{1,2}\.?\d{3}\.?\d{3})/i,
+    // Buscar número de 8 dígitos que no sea parte de otra cosa
+    /(?:^|\s)(\d{8})(?:\s|$)/,
   ];
   
   for (const pattern of dniPatterns) {
-    const match = normalizedText.match(pattern);
+    const match = normalizedFrontText.match(pattern);
     if (match && match[1]) {
       let dni = match[1].replace(/\./g, ''); // Remover puntos
       // Validar que sea un número de 7-8 dígitos
       if (dni.length >= 7 && dni.length <= 8 && /^\d+$/.test(dni)) {
-        // Verificar que no sea parte de una fecha o CUIL o TRAMITE
-        const dniContext = normalizedText.substring(Math.max(0, normalizedText.indexOf(dni) - 20), 
-                                                     normalizedText.indexOf(dni) + 30);
+        // Verificar que no sea parte de una fecha, CUIL o TRAMITE
+        const dniIndex = normalizedFrontText.indexOf(match[1]);
+        const dniContext = normalizedFrontText.substring(Math.max(0, dniIndex - 30), 
+                                                         Math.min(normalizedFrontText.length, dniIndex + 50));
         if (!dniContext.includes("CUIL") && 
             !dniContext.includes("TRAMITE") && 
-            !dniContext.includes("FECHA")) {
+            !dniContext.includes("FECHA") &&
+            !dniContext.includes("NACIMIENTO") &&
+            !dniContext.includes("EMISION")) {
           data.dni = dni;
-          console.log("[Parser] DNI encontrado:", dni);
+          console.log("[Parser] DNI encontrado:", dni, "de:", match[1]);
           break;
         }
       }
     }
   }
 
-  // 4. BUSCAR FECHA DE NACIMIENTO - Formato con meses en texto (NOV 1977) o numérico
+  // 4. BUSCAR FECHA DE NACIMIENTO - Solo en el FRENTE
+  // Formato con meses en texto (NOV 1977) o numérico
   const monthNames: { [key: string]: string } = {
     'JAN': '01', 'ENE': '01', 'JANUARY': '01', 'ENERO': '01',
     'FEB': '02', 'FEBRUARY': '02', 'FEBRERO': '02',
@@ -168,23 +187,34 @@ function parseDNIData(text: string): {
   };
 
   // Buscar formato con mes en texto: "13 NOV 1977" o "13 NOV / NOV 1977"
-  const datePatternText = /(?:FECHA\s+DE\s+NACIMIENTO|DATE\s+OF\s+BIRTH|NACIMIENTO|BIRTH)[:\/\s]*(\d{1,2})\s+([A-Z]{3,9})(?:\s*\/\s*[A-Z]{3,9})?\s+(\d{4})/i;
-  let dateMatch = normalizedText.match(datePatternText);
+  // También buscar después de etiquetas: "Fecha de nacimiento / Date of birth: 13 NOV 1977"
+  const datePatternsText = [
+    /(?:FECHA\s+DE\s+NACIMIENTO|DATE\s+OF\s+BIRTH|NACIMIENTO|BIRTH)(?:\s*\/\s*[A-Z\s]+)?[:\s]+(\d{1,2})\s+([A-Z]{3,9})(?:\s*\/\s*[A-Z]{3,9})?\s+(\d{4})/i,
+    /(?:FECHA\s+DE\s+NACIMIENTO|NACIMIENTO)[:\s]+(\d{1,2})\s+([A-Z]{3,9})\s+(\d{4})/i,
+    // Buscar formato libre: "13 NOV 1977" cerca de palabras clave
+    /(\d{1,2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC|ENE|ABR|AGO|SEPT|DIC)\s+(\d{4})/i,
+  ];
   
-  if (dateMatch) {
-    const day = parseInt(dateMatch[1]);
-    const monthStr = dateMatch[2].toUpperCase().substring(0, 3);
-    const year = parseInt(dateMatch[3]);
-    const month = monthNames[monthStr] || monthNames[dateMatch[2].toUpperCase()];
-    
-    if (month && day >= 1 && day <= 31 && year >= 1900 && year <= new Date().getFullYear()) {
-      data.birthDate = `${year}-${month}-${String(day).padStart(2, "0")}`;
-      console.log("[Parser] Fecha encontrada (formato texto):", data.birthDate);
+  for (const pattern of datePatternsText) {
+    const dateMatch = normalizedFrontText.match(pattern);
+    if (dateMatch) {
+      const day = parseInt(dateMatch[1]);
+      const monthStr = dateMatch[2].toUpperCase().substring(0, 3);
+      const year = parseInt(dateMatch[3]);
+      const month = monthNames[monthStr];
+      
+      if (month && day >= 1 && day <= 31 && year >= 1900 && year <= new Date().getFullYear()) {
+        data.birthDate = `${year}-${month}-${String(day).padStart(2, "0")}`;
+        console.log("[Parser] Fecha encontrada (formato texto):", data.birthDate, "de:", dateMatch[0]);
+        break;
+      }
     }
-  } else {
-    // Buscar formato numérico: "13/11/1977" o "13-11-1977"
-    const datePatternNumeric = /(?:FECHA\s+DE\s+NACIMIENTO|DATE\s+OF\s+BIRTH|NACIMIENTO)[:\/\s]*(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/i;
-    dateMatch = normalizedText.match(datePatternNumeric);
+  }
+  
+  // Si no encontramos fecha con texto, buscar formato numérico
+  if (!data.birthDate) {
+    const datePatternNumeric = /(?:FECHA\s+DE\s+NACIMIENTO|DATE\s+OF\s+BIRTH|NACIMIENTO)(?:\s*\/\s*[A-Z\s]+)?[:\s]+(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/i;
+    const dateMatch = normalizedFrontText.match(datePatternNumeric);
     
     if (dateMatch) {
       const day = parseInt(dateMatch[1]);
@@ -198,19 +228,24 @@ function parseDNIData(text: string): {
     }
   }
 
-  // 5. BUSCAR DIRECCIÓN (DOMICILIO) - Buscar después de "DOMICILIO" o en el dorso
+  // 5. BUSCAR DIRECCIÓN (DOMICILIO) - Solo en el DORSO (o en el frente si no hay dorso)
+  const searchText = backText ? normalizedBackText : normalizedFrontText;
+  const searchLines = backText ? backLines : frontLines;
+  
   const addressPatterns = [
-    /(?:DOMICILIO|ADDRESS)[:\s]+([A-Z0-9\s\-\.,]+?)(?:\s*\n|\s*LUGAR|\s*CUIL|\s*$)/i,
-    /(?:DOMICILIO|ADDRESS)[:\s]+(.{10,100})/i,
+    /(?:DOMICILIO|ADDRESS)[:\s]+([A-Z0-9\s\-\.,]+?)(?:\s*\n|\s*LUGAR|\s*CUIL|\s*NACIMIENTO|\s*$)/i,
+    /(?:DOMICILIO|ADDRESS)[:\s]+([A-Z0-9\s\-\.,]{10,100})/i,
   ];
   
   for (const pattern of addressPatterns) {
-    const match = normalizedText.match(pattern);
+    const match = searchText.match(pattern);
     if (match && match[1]) {
       let address = match[1].trim();
-      // Limpiar caracteres extraños al inicio/final
-      address = address.replace(/^[^\w]+|[^\w]+$/g, '').trim();
-      if (address.length > 5 && !address.includes("TRAMITE") && !address.includes("OF. IDENT")) {
+      // Limpiar caracteres extraños al inicio/final pero mantener guiones
+      address = address.replace(/^[^\w\-]+|[^\w\-]+$/g, '').trim();
+      if (address.length > 5 && 
+          !address.includes("TRAMITE") && !address.includes("OF. IDENT") &&
+          !address.includes("IDENTIFICADO")) {
         data.address = address;
         console.log("[Parser] Dirección encontrada:", address);
         break;
@@ -219,20 +254,23 @@ function parseDNIData(text: string): {
   }
 
   // Si no encontramos dirección con etiqueta, buscar líneas que parezcan direcciones
-  if (!data.address) {
-    const addressKeywords = ["CALLE", "AV", "AVENIDA", "BOUCHARD", "MORENO", "BUENOS AIRES"];
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
+  if (!data.address && searchLines.length > 0) {
+    const addressKeywords = ["CALLE", "AV", "AVENIDA", "BOUCHARD", "MORENO", "BUENOS AIRES", "DOMICILIO"];
+    for (let i = 0; i < searchLines.length; i++) {
+      const line = searchLines[i];
       const upperLine = line.toUpperCase();
       
-      if (addressKeywords.some((keyword) => upperLine.includes(keyword))) {
+      if (addressKeywords.some((keyword) => upperLine.includes(keyword)) || 
+          (upperLine.match(/[A-Z]+\s+\d+/) && upperLine.includes("-"))) {
         // Buscar la línea completa y las siguientes si contienen números y guiones
         let address = line;
         // Si la siguiente línea también parece parte de la dirección, agregarla
-        if (i + 1 < lines.length && 
-            (lines[i + 1].match(/[A-Z]+\s*-\s*[A-Z]+/) || lines[i + 1].match(/\d+/))) {
-          address += " - " + lines[i + 1];
+        if (i + 1 < searchLines.length && 
+            (searchLines[i + 1].match(/[A-Z]+\s*-\s*[A-Z]+/) || searchLines[i + 1].match(/\d+/))) {
+          address += " - " + searchLines[i + 1];
         }
+        // Limpiar la dirección
+        address = address.replace(/TRAMITE.*/i, '').trim();
         if (address.length > 10 && !address.includes("TRAMITE")) {
           data.address = address;
           console.log("[Parser] Dirección encontrada (por keywords):", address);
@@ -473,13 +511,21 @@ Si prefieres usar las credenciales de tu cuenta de servicio, configura GOOGLE_AP
         );
       }
       
-      let fullText = "";
-
+      // Separar texto del frente y dorso
+      let frontText = "";
+      let backText = "";
+      
       if (visionData.responses) {
         visionData.responses.forEach((response: any, index: number) => {
           if (response.fullTextAnnotation?.text) {
-            console.log(`[OCR DNI] Texto extraído de respuesta ${index + 1}:`, response.fullTextAnnotation.text.substring(0, 200) + "...");
-            fullText += response.fullTextAnnotation.text + "\n";
+            const text = response.fullTextAnnotation.text;
+            if (index === 0) {
+              frontText = text;
+              console.log(`[OCR DNI] Texto del FRENTE (respuesta ${index + 1}):`, text.substring(0, 500) + "...");
+            } else {
+              backText = text;
+              console.log(`[OCR DNI] Texto del DORSO (respuesta ${index + 1}):`, text.substring(0, 500) + "...");
+            }
           } else {
             console.warn(`[OCR DNI] Respuesta ${index + 1} no contiene texto.`, {
               hasError: !!response.error,
@@ -490,23 +536,18 @@ Si prefieres usar las credenciales de tu cuenta de servicio, configura GOOGLE_AP
         });
       }
 
-      console.log("[OCR DNI] Texto completo extraído:", {
-        length: fullText.length,
-        preview: fullText.substring(0, 300),
-      });
-
-      if (!fullText.trim()) {
-        console.warn("[OCR DNI] No se pudo extraer texto de las imágenes");
+      if (!frontText.trim()) {
+        console.warn("[OCR DNI] No se pudo extraer texto del frente del DNI");
         return NextResponse.json(
           {
-            error: "No se pudo extraer texto de las imágenes. Por favor verifica que las imágenes sean claras y legibles.",
+            error: "No se pudo extraer texto del frente del DNI. Por favor verifica que la imagen sea clara y legible.",
           },
           { status: 400 }
         );
       }
 
-      console.log("[OCR DNI] Parseando datos del DNI...");
-      const extractedData = parseDNIData(fullText);
+      console.log("[OCR DNI] Parseando datos del DNI (frente y dorso separados)...");
+      const extractedData = parseDNIData(frontText, backText);
       console.log("[OCR DNI] Datos extraídos:", extractedData);
       
       return NextResponse.json(extractedData);
