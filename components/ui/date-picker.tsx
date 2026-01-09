@@ -139,9 +139,10 @@ export function DatePicker({
                     currentDate.toDateString() === new Date().toDateString();
                   
                   // Validar min/max
-                  const isDisabled = 
+                  const isDisabled = Boolean(
                     (min && currentDate < new Date(min + "T00:00:00")) ||
-                    (max && currentDate > new Date(max + "T00:00:00"));
+                    (max && currentDate > new Date(max + "T00:00:00"))
+                  );
                   
                   if (day <= 0 || !isCurrentMonth) {
                     return <div key={i} className="h-8" />;
