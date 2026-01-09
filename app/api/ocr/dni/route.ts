@@ -191,24 +191,45 @@ export async function POST(request: Request) {
       );
 
       if (!visionResponse.ok) {
-        const errorText = await visionResponse.text();
+        let errorText = "";
+        let errorJson: any = null;
+        
+        try {
+          errorText = await visionResponse.text();
+          errorJson = JSON.parse(errorText);
+        } catch {
+          // Si no es JSON, usar el texto tal cual
+        }
+        
+        const errorMessage = errorJson?.error?.message || errorText || visionResponse.statusText;
+        
         console.error("Google Vision API error:", {
           status: visionResponse.status,
           statusText: visionResponse.statusText,
-          error: errorText,
+          error: errorMessage,
+          fullError: errorJson || errorText,
         });
         
         // Si es un error de autenticación, dar un mensaje más específico
         if (visionResponse.status === 401 || visionResponse.status === 403) {
+          const detailedError = errorJson?.error?.message 
+            ? `: ${errorJson.error.message}` 
+            : "";
+          
           return NextResponse.json(
             {
-              error: "API Key inválida o sin permisos. Verifica que la clave esté correctamente configurada en Vercel.",
+              error: `API Key inválida o sin permisos${detailedError}. Verifica que:
+1. La API Key esté correctamente copiada en Vercel (sin espacios al inicio/final)
+2. Cloud Vision API esté habilitada en tu proyecto de Google Cloud
+3. La API Key tenga permisos para Cloud Vision API
+4. No haya restricciones de IP/HTTP referrer bloqueando Vercel`,
+              details: errorMessage,
             },
             { status: 401 }
           );
         }
         
-        throw new Error(`Google Vision API error: ${visionResponse.status} ${visionResponse.statusText}`);
+        throw new Error(`Google Vision API error: ${visionResponse.status} ${errorMessage}`);
       }
 
       const visionData = await visionResponse.json();

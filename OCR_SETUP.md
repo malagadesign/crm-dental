@@ -114,6 +114,51 @@ Una vez configurado, los usuarios pueden:
 - Verifica que `GOOGLE_CLOUD_VISION_API_KEY` esté configurada en las variables de entorno
 - Asegúrate de que la API Key tenga permisos para Cloud Vision API
 
+### Error: "API Key inválida o sin permisos" (401/403)
+
+Este error indica que la API Key está configurada pero no es válida o no tiene permisos. Sigue estos pasos:
+
+1. **Verifica que la API Key esté correctamente copiada:**
+   - Ve a Google Cloud Console > APIs & Services > Credentials
+   - Copia la API Key completa (sin espacios al inicio o final)
+   - En Vercel, verifica que la variable `GOOGLE_CLOUD_VISION_API_KEY` tenga exactamente el mismo valor
+
+2. **Habilita Cloud Vision API:**
+   - Ve a Google Cloud Console > APIs & Services > Library
+   - Busca "Cloud Vision API"
+   - Si no está habilitada, haz clic en "Enable"
+   - Espera unos minutos para que se propague el cambio
+
+3. **Verifica las restricciones de la API Key:**
+   - Ve a Google Cloud Console > APIs & Services > Credentials
+   - Haz clic en tu API Key para editarla
+   - En "API restrictions":
+     - Si está restringida, asegúrate de que "Cloud Vision API" esté en la lista
+     - O cambia a "Don't restrict key" temporalmente para probar
+   - En "Application restrictions":
+     - Si está restringida por HTTP referrer, agrega `*.vercel.app` y tu dominio
+     - O cambia a "None" temporalmente para probar
+
+4. **Verifica la facturación:**
+   - Aunque los primeros 1,000 requests son gratuitos, necesitas tener una cuenta de facturación activa
+   - Ve a Google Cloud Console > Billing
+   - Asegúrate de tener una cuenta de facturación vinculada
+
+5. **Revisa los logs de Vercel:**
+   - Los logs mostrarán el error exacto de Google Cloud
+   - Busca mensajes como "API key not valid" o "Permission denied"
+
+6. **Crea una nueva API Key (si nada funciona):**
+   - Ve a Google Cloud Console > APIs & Services > Credentials
+   - Crea una nueva API Key
+   - Asegúrate de habilitar Cloud Vision API antes
+   - Actualiza la variable en Vercel con la nueva clave
+
+### Error: "No se pudo extraer texto de las imágenes"
+- Las imágenes pueden ser de baja calidad o estar borrosas
+- Asegúrate de que las imágenes sean claras y estén bien iluminadas
+- Intenta con imágenes de mayor resolución
+
 ### Datos extraídos incorrectamente
 - El OCR puede tener errores, especialmente con imágenes de baja calidad
 - Siempre revisa y corrige los datos extraídos antes de guardar
@@ -122,3 +167,4 @@ Una vez configurado, los usuarios pueden:
 ### Límites de cuota
 - Google Cloud Vision tiene límites de cuota por defecto
 - Puedes aumentar los límites en Google Cloud Console si es necesario
+- Los primeros 1,000 requests por mes son gratuitos
