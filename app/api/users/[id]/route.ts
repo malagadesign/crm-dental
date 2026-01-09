@@ -50,13 +50,25 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Solo admin puede editar usuarios
-    if (session.user.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
     const body = await request.json();
     const { name, email, password, role } = body;
+    
+    const userId = parseInt(params.id);
+    const isOwnProfile = session.user.id === userId.toString();
+    const isAdmin = session.user.role === "admin";
+    
+    // Solo admin puede editar otros usuarios, o el usuario puede editar su propio perfil
+    if (!isAdmin && !isOwnProfile) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    
+    // Solo admin puede cambiar el rol
+    if (role && !isAdmin) {
+      return NextResponse.json(
+        { error: "Only administrators can change roles" },
+        { status: 403 }
+      );
+    }
 
     if (!name || !email) {
       return NextResponse.json(
@@ -80,8 +92,12 @@ export async function PUT(
     const updateData: any = {
       name,
       email,
-      role: role || "odontologo",
     };
+    
+    // Solo admin puede cambiar el rol
+    if (isAdmin && role) {
+      updateData.role = role;
+    }
 
     // Solo actualizar password si se proporciona
     if (password) {

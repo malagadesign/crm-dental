@@ -1,6 +1,7 @@
 "use client";
 
-import { User } from "lucide-react";
+import { User, Settings } from "lucide-react";
+import Link from "next/link";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,13 +61,23 @@ export function Header({ user }: HeaderProps) {
                     {user.email}
                   </p>
                   <p className="text-xs leading-none text-muted-foreground">
-                    {user.role === "admin" ? "Odontólogo" : "Secretaria"}
+                    {user.role === "admin"
+                      ? "Administrador"
+                      : user.role === "odontologo"
+                      ? "Odontólogo"
+                      : "Secretaria"}
                   </p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/profile" className="flex items-center w-full">
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Mi Perfil</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/login" })}>
-                <User className="mr-2 h-4 w-4" />
                 <span>Cerrar sesión</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
