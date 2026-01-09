@@ -27,8 +27,6 @@ async function main() {
     console.log('ℹ️  Usuario admin ya existe:', existingAdmin.email)
   }
 
-  console.log('✅ Usuario admin creado:', admin.email)
-
   // Crear consultorio de ejemplo (solo si no existe)
   const existingClinic = await prisma.clinic.findFirst({
     where: { name: 'Consultorio Principal' },
