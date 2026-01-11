@@ -1,13 +1,15 @@
 "use client";
 
-import { use, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, FileText, Calendar, Building2, Stethoscope, User, Clock } from "lucide-react";
+import { ArrowLeft, Plus, FileText, Calendar, Building2, Stethoscope, User, Clock, Edit, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { MedicalRecordDialog } from "@/components/patients/medical-record-dialog";
+import { OdontogramCard } from "@/components/patients/odontogram-card";
 
 async function fetchPatient(id: number) {
   const response = await fetch(`/api/patients/${id}`);
@@ -28,14 +30,52 @@ const statusColors: Record<string, string> = {
   no_asistio: "bg-red-100 text-red-800",
 };
 
+async function deleteMedicalRecord(id: number) {
+  const response = await fetch(`/api/medical-records/${id}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Error deleting medical record");
+  }
+  return response.json();
+}
+
 export default function PatientDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }) {
-  const resolvedParams = use(params);
-  const patientId = parseInt(resolvedParams.id);
+  const patientId = parseInt(params.id);
   const [isRecordDialogOpen, setIsRecordDialogOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<any | null>(null);
+  const { data: session } = useSession();
+  const queryClient = useQueryClient();
+  const userRole = session?.user?.role || "secretary";
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteMedicalRecord,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["medical-records", patientId] });
+      queryClient.invalidateQueries({ queryKey: ["patient", patientId] });
+    },
+  });
+
+  const handleEditRecord = (record: any) => {
+    setEditingRecord(record);
+    setIsRecordDialogOpen(true);
+  };
+
+  const handleDeleteRecord = (recordId: number) => {
+    if (confirm("¿Estás seguro de que deseas eliminar esta nota clínica? Esta acción no se puede deshacer.")) {
+      deleteMutation.mutate(recordId);
+    }
+  };
+
+  const handleDialogClose = () => {
+    setIsRecordDialogOpen(false);
+    setEditingRecord(null);
+  };
 
   const { data: patient, isLoading: patientLoading } = useQuery({
     queryKey: ["patient", patientId],
@@ -150,6 +190,8 @@ export default function PatientDetailPage({
         </Card>
       </div>
 
+      <OdontogramCard patientId={patientId} />
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -165,7 +207,7 @@ export default function PatientDetailPage({
               {medicalRecords.map((record: any) => (
                 <div
                   key={record.id}
-                  className="border-l-4 border-primary pl-4 py-2"
+                  className="border-l-4 border-primary pl-4 py-2 group"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
@@ -177,6 +219,31 @@ export default function PatientDetailPage({
                         <span className="text-sm text-muted-foreground">
                           por {record.user.name}
                         </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* Todos pueden editar (admin, odontologo, secretary) */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleEditRecord(record)}
+                        title="Editar nota clínica"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      {/* Solo admin puede eliminar */}
+                      {userRole === "admin" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => handleDeleteRecord(record.id)}
+                          disabled={deleteMutation.isPending}
+                          title="Eliminar nota clínica"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -217,8 +284,8 @@ export default function PatientDetailPage({
                 const isPast = appointmentDate < new Date();
                 
                 return (
-                  <div
-                    key={appointment.id}
+                <div
+                  key={appointment.id}
                     className={`flex items-start justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors ${
                       isPast ? "opacity-75" : ""
                     }`}
@@ -227,9 +294,9 @@ export default function PatientDetailPage({
                       <div className="flex items-center gap-3 mb-2">
                         <div className="font-medium text-base">
                           {formatDateTime(appointmentDate)}
-                        </div>
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  </div>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${
                             statusColors[appointment.status] || "bg-gray-100 text-gray-800"
                           }`}
                         >
@@ -238,8 +305,8 @@ export default function PatientDetailPage({
                            appointment.status === "asistio" ? "Asistió" :
                            appointment.status === "no_asistio" ? "No Asistió" :
                            appointment.status}
-                        </span>
-                      </div>
+                  </span>
+                </div>
                       <div className="space-y-1 text-sm text-muted-foreground">
                         <div className="flex items-center gap-2">
                           <Building2 className="h-4 w-4" />
@@ -283,8 +350,9 @@ export default function PatientDetailPage({
 
       <MedicalRecordDialog
         open={isRecordDialogOpen}
-        onOpenChange={setIsRecordDialogOpen}
+        onOpenChange={handleDialogClose}
         patientId={patientId}
+        record={editingRecord}
       />
     </div>
   );

@@ -26,6 +26,7 @@ interface MedicalRecordDialogProps {
   onOpenChange: (open: boolean) => void;
   patientId: number;
   appointmentId?: number | null;
+  record?: any | null; // Record existente para edición
 }
 
 async function fetchAppointments(patientId: number) {
@@ -44,17 +45,33 @@ async function createMedicalRecord(data: any) {
   return response.json();
 }
 
+async function updateMedicalRecord(id: number, data: any) {
+  const response = await fetch(`/api/medical-records/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Error updating medical record");
+  }
+  return response.json();
+}
+
 export function MedicalRecordDialog({
   open,
   onOpenChange,
   patientId,
   appointmentId,
+  record,
 }: MedicalRecordDialogProps) {
   const queryClient = useQueryClient();
+  const isEditing = !!record;
+  
   const [formData, setFormData] = useState({
     recordDate: new Date().toISOString().split("T")[0],
     notes: "",
-    appointmentId: appointmentId?.toString() || "",
+    appointmentId: appointmentId?.toString() || "none",
   });
 
   const { data: appointments } = useQuery({
@@ -65,16 +82,29 @@ export function MedicalRecordDialog({
 
   useEffect(() => {
     if (open) {
-      setFormData({
-        recordDate: new Date().toISOString().split("T")[0],
-        notes: "",
-        appointmentId: appointmentId?.toString() || "",
-      });
+      if (record) {
+        // Modo edición: cargar datos del record
+        const recordDate = new Date(record.recordDate).toISOString().split("T")[0];
+        setFormData({
+          recordDate,
+          notes: record.notes || "",
+          appointmentId: record.appointmentId?.toString() || "none",
+        });
+      } else {
+        // Modo creación
+        setFormData({
+          recordDate: new Date().toISOString().split("T")[0],
+          notes: "",
+          appointmentId: appointmentId?.toString() || "none",
+        });
+      }
     }
-  }, [open, appointmentId]);
+  }, [open, appointmentId, record]);
 
   const mutation = useMutation({
-    mutationFn: createMedicalRecord,
+    mutationFn: isEditing
+      ? (data: any) => updateMedicalRecord(record!.id, data)
+      : createMedicalRecord,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["medical-records", patientId] });
       queryClient.invalidateQueries({ queryKey: ["patient", patientId] });
@@ -82,7 +112,7 @@ export function MedicalRecordDialog({
       setFormData({
         recordDate: new Date().toISOString().split("T")[0],
         notes: "",
-        appointmentId: "",
+        appointmentId: "none",
       });
     },
   });
@@ -90,8 +120,7 @@ export function MedicalRecordDialog({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     mutation.mutate({
-      patientId,
-      appointmentId: formData.appointmentId ? parseInt(formData.appointmentId) : null,
+      appointmentId: formData.appointmentId && formData.appointmentId !== "none" ? parseInt(formData.appointmentId) : null,
       recordDate: formData.recordDate,
       notes: formData.notes,
     });
@@ -101,9 +130,11 @@ export function MedicalRecordDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Nueva Nota Clínica</DialogTitle>
+          <DialogTitle>{isEditing ? "Editar Nota Clínica" : "Nueva Nota Clínica"}</DialogTitle>
           <DialogDescription>
-            Agrega una nueva nota a la historia clínica del paciente
+            {isEditing
+              ? "Modifica la nota clínica del paciente"
+              : "Agrega una nueva nota a la historia clínica del paciente"}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -132,7 +163,7 @@ export function MedicalRecordDialog({
                   <SelectValue placeholder="Seleccionar turno" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Sin relacionar</SelectItem>
+                  <SelectItem value="none">Sin relacionar</SelectItem>
                   {appointments?.map((appointment: any) => (
                     <SelectItem
                       key={appointment.id}
@@ -168,7 +199,7 @@ export function MedicalRecordDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? "Guardando..." : "Guardar"}
+              {mutation.isPending ? "Guardando..." : isEditing ? "Actualizar" : "Guardar"}
             </Button>
           </DialogFooter>
         </form>

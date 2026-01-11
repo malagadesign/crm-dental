@@ -75,7 +75,7 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
     origin: "instagram",
     message: "",
     status: "nuevo",
-    patientId: "",
+    patientId: "none",
   });
 
   const { data: patientsData } = useQuery({
@@ -96,7 +96,7 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
         origin: lead.origin || "instagram",
         message: lead.message || "",
         status: lead.status || "nuevo",
-        patientId: lead.patientId?.toString() || "",
+        patientId: lead.patientId?.toString() || "none",
       });
     } else {
       setFormData({
@@ -107,7 +107,7 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
         origin: "instagram",
         message: "",
         status: "nuevo",
-        patientId: "",
+        patientId: "none",
       });
     }
   }, [lead, open]);
@@ -125,7 +125,7 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
     e.preventDefault();
     mutation.mutate({
       ...formData,
-      patientId: formData.patientId || null,
+      patientId: formData.patientId && formData.patientId !== "none" ? parseInt(formData.patientId) : null,
     });
   };
 
@@ -246,7 +246,7 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                     <SelectValue placeholder="Seleccionar paciente" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Sin asignar</SelectItem>
+                    <SelectItem value="none">Sin asignar</SelectItem>
                     {patients?.map((patient: any) => (
                       <SelectItem
                         key={patient.id}

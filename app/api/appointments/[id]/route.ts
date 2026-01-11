@@ -69,11 +69,21 @@ export async function PUT(
       );
     }
 
+    // Normalizar valores vacíos a null
+    const normalizedTreatmentId = 
+      treatmentId && treatmentId !== "" && treatmentId !== "none" 
+        ? parseInt(treatmentId) 
+        : null;
+    const normalizedUserId = 
+      userId && userId !== "" && userId !== "unassigned" 
+        ? parseInt(userId) 
+        : null;
+
     // Validar que no haya solapamiento si hay un usuario asignado
-    if (userId) {
+    if (normalizedUserId) {
       const overlapping = await prisma.appointment.findFirst({
         where: {
-          userId: parseInt(userId),
+          userId: normalizedUserId,
           datetimeStart: {
             lt: new Date(datetimeEnd),
           },
@@ -102,8 +112,8 @@ export async function PUT(
       data: {
         patientId: parseInt(patientId),
         clinicId: parseInt(clinicId),
-        treatmentId: treatmentId ? parseInt(treatmentId) : null,
-        userId: userId ? parseInt(userId) : null,
+        treatmentId: normalizedTreatmentId,
+        userId: normalizedUserId,
         datetimeStart: new Date(datetimeStart),
         datetimeEnd: new Date(datetimeEnd),
         status: status || "confirmado",

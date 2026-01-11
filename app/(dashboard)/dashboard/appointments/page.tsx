@@ -123,99 +123,99 @@ export default function AppointmentsPage() {
         </TabsList>
 
         <TabsContent value="upcoming" className="mt-6">
-          {isLoading ? (
-            <div className="text-center py-12">Cargando...</div>
-          ) : upcomingAppointments.length > 0 ? (
-            <div className="grid gap-4">
-              {upcomingAppointments.map((appointment) => (
-                <Card key={appointment.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <Calendar className="h-5 w-5 text-primary" />
-                          <div>
-                            <h3 className="text-lg font-semibold">
-                              {appointment.patient.firstName}{" "}
-                              {appointment.patient.lastName}
-                            </h3>
-                            <p className="text-sm text-muted-foreground">
-                              {formatDateTime(appointment.datetimeStart)} -{" "}
-                              {new Date(appointment.datetimeEnd).toLocaleTimeString(
-                                "es-AR",
-                                { hour: "2-digit", minute: "2-digit" }
-                              )}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mt-4">
-                          <div>
-                            <span className="font-medium">Consultorio:</span>{" "}
-                            {appointment.clinic.name}
-                          </div>
-                          {appointment.treatment && (
-                            <div>
-                              <span className="font-medium">Tratamiento:</span>{" "}
-                              {appointment.treatment.name}
-                            </div>
+      {isLoading ? (
+        <div className="text-center py-12">Cargando...</div>
+      ) : upcomingAppointments.length > 0 ? (
+        <div className="grid gap-4">
+          {upcomingAppointments.map((appointment) => (
+            <Card key={appointment.id} className="hover:shadow-md transition-shadow">
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Calendar className="h-5 w-5 text-primary" />
+                      <div>
+                        <h3 className="text-lg font-semibold">
+                          {appointment.patient.firstName}{" "}
+                          {appointment.patient.lastName}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          {formatDateTime(appointment.datetimeStart)} -{" "}
+                          {new Date(appointment.datetimeEnd).toLocaleTimeString(
+                            "es-AR",
+                            { hour: "2-digit", minute: "2-digit" }
                           )}
-                          {appointment.user && (
-                            <div>
-                              <span className="font-medium">Odontólogo:</span>{" "}
-                              {appointment.user.name}
-                            </div>
-                          )}
-                          <div>
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                statusColors[appointment.status]
-                              }`}
-                            >
-                              {appointment.status}
-                            </span>
-                          </div>
-                        </div>
-                        {appointment.notes && (
-                          <p className="text-sm text-muted-foreground mt-2">
-                            {appointment.notes}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(appointment)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(appointment.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        </p>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-muted-foreground mb-4">
-                  No hay turnos programados
-                </p>
-                <Button onClick={handleCreate}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Crear Primer Turno
-                </Button>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mt-4">
+                      <div>
+                        <span className="font-medium">Consultorio:</span>{" "}
+                        {appointment.clinic.name}
+                      </div>
+                      {appointment.treatment && (
+                        <div>
+                          <span className="font-medium">Tratamiento:</span>{" "}
+                          {appointment.treatment.name}
+                        </div>
+                      )}
+                      {appointment.user && (
+                        <div>
+                          <span className="font-medium">Odontólogo:</span>{" "}
+                          {appointment.user.name}
+                        </div>
+                      )}
+                      <div>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            statusColors[appointment.status]
+                          }`}
+                        >
+                          {appointment.status}
+                        </span>
+                      </div>
+                    </div>
+                    {appointment.notes && (
+                      <p className="text-sm text-muted-foreground mt-2">
+                        {appointment.notes}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEdit(appointment)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(appointment.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
-          )}
+          ))}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground mb-4">
+              No hay turnos programados
+            </p>
+            <Button onClick={handleCreate}>
+              <Plus className="mr-2 h-4 w-4" />
+              Crear Primer Turno
+            </Button>
+          </CardContent>
+        </Card>
+      )}
         </TabsContent>
 
         <TabsContent value="past" className="mt-6">

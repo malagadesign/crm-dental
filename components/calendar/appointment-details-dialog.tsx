@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -23,10 +23,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, Clock, User, Building2, Stethoscope, FileText } from "lucide-react";
+import { Calendar, Clock, User, Building2, Stethoscope, FileText, Phone, MessageCircle, Search, Check, ChevronDown } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { AppointmentWithRelations, AppointmentStatus, Treatment, User as UserType, Clinic } from "@/types";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
+// Función para generar link de WhatsApp
+function getWhatsAppLink(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  // Remover espacios, guiones y caracteres especiales, solo dejar números
+  const cleanPhone = phone.replace(/\D/g, '');
+  if (!cleanPhone) return null;
+  // Si no empieza con código de país, agregar 54 (Argentina)
+  const phoneWithCountry = cleanPhone.startsWith('54') ? cleanPhone : `54${cleanPhone}`;
+  return `https://wa.me/${phoneWithCountry}`;
+}
 
 interface AppointmentDetailsDialogProps {
   open: boolean;
@@ -140,6 +157,8 @@ export function AppointmentDetailsDialog({
     notes: "",
   });
   const [error, setError] = useState("");
+  const [patientSearchOpen, setPatientSearchOpen] = useState(false);
+  const [patientSearchQuery, setPatientSearchQuery] = useState("");
 
   const { data: patientsData } = useQuery({
     queryKey: ["patients", "all"],
@@ -148,6 +167,33 @@ export function AppointmentDetailsDialog({
   });
   
   const patients = Array.isArray(patientsData) ? patientsData : [];
+
+  // Filtrar pacientes según búsqueda
+  const filteredPatients = useMemo(() => {
+    if (!patientSearchQuery.trim()) {
+      return patients.slice(0, 50);
+    }
+    
+    const query = patientSearchQuery.toLowerCase().trim();
+    return patients.filter((patient: any) => {
+      const fullName = `${patient.firstName} ${patient.lastName}`.toLowerCase();
+      const dni = patient.dni?.toLowerCase() || "";
+      const phone = patient.phone?.toLowerCase() || "";
+      const email = patient.email?.toLowerCase() || "";
+      
+      return (
+        fullName.includes(query) ||
+        dni.includes(query) ||
+        phone.includes(query) ||
+        email.includes(query)
+      );
+    }).slice(0, 50);
+  }, [patients, patientSearchQuery]);
+
+  // Obtener paciente seleccionado para mostrar
+  const selectedPatient = patients.find(
+    (p: any) => p.id.toString() === formData.patientId
+  );
 
   const { data: clinics } = useQuery({
     queryKey: ["clinics"],
@@ -201,16 +247,23 @@ export function AppointmentDetailsDialog({
       });
       setIsEditing(false);
       setError("");
+      setPatientSearchQuery("");
+      setPatientSearchOpen(false);
     } else if (!open) {
       // Resetear cuando se cierra el modal
       setIsEditing(false);
       setError("");
+      setPatientSearchQuery("");
+      setPatientSearchOpen(false);
     }
   }, [appointment, open]);
 
   // Calcular timeEnd automáticamente cuando cambia treatmentId o timeStart
   useEffect(() => {
     if (!isEditing || !formData.timeStart) return;
+    
+    // Validar formato de hora
+    if (!/^\d{2}:\d{2}$/.test(formData.timeStart)) return;
     
     let durationMinutes = 30;
     
@@ -224,17 +277,37 @@ export function AppointmentDetailsDialog({
     }
     
     const [startHour, startMinute] = formData.timeStart.split(":").map(Number);
+    
+    // Validar valores
+    if (isNaN(startHour) || isNaN(startMinute) || startMinute < 0 || startMinute >= 60) {
+      return;
+    }
+    
     const startTotalMinutes = startHour * 60 + startMinute;
     const endTotalMinutes = startTotalMinutes + durationMinutes;
     const endHour = Math.floor(endTotalMinutes / 60);
-    const endMinute = endTotalMinutes % 60;
+    let endMinute = endTotalMinutes % 60;
     
-    if (endHour > 20 || (endHour === 20 && endMinute > 0)) {
-      setFormData((prev) => ({ ...prev, timeEnd: "20:00" }));
-    } else {
-      const timeEndStr = `${String(endHour).padStart(2, "0")}:${String(endMinute).padStart(2, "0")}`;
-      setFormData((prev) => ({ ...prev, timeEnd: timeEndStr }));
+    // Normalizar minutos (asegurar que estén en 0-59)
+    if (endMinute >= 60) {
+      const extraHours = Math.floor(endMinute / 60);
+      endMinute = endMinute % 60;
+      // Esto no debería pasar, pero por seguridad
     }
+    
+    // Asegurar que no pase de las 20:00
+    const finalHour = Math.min(endHour, 20);
+    const finalMinute = finalHour === 20 ? 0 : endMinute;
+    
+    const timeEndStr = `${String(finalHour).padStart(2, "0")}:${String(finalMinute).padStart(2, "0")}`;
+    
+    setFormData((prev) => {
+      // Solo actualizar si el valor cambió
+      if (prev.timeEnd !== timeEndStr) {
+        return { ...prev, timeEnd: timeEndStr };
+      }
+      return prev;
+    });
   }, [formData.treatmentId, formData.timeStart, treatments, isEditing]);
 
   const mutation = useMutation({
@@ -309,27 +382,100 @@ export function AppointmentDetailsDialog({
               )}
               <div className="grid gap-2">
                 <Label htmlFor="patientId">Paciente *</Label>
-                <Select
-                  value={formData.patientId}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, patientId: value })
-                  }
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar paciente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {patients?.map((patient: any) => (
-                      <SelectItem
-                        key={patient.id}
-                        value={patient.id.toString()}
-                      >
-                        {patient.firstName} {patient.lastName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={patientSearchOpen} onOpenChange={setPatientSearchOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={patientSearchOpen}
+                      className="w-full justify-between h-10 font-normal"
+                      type="button"
+                    >
+                      {selectedPatient ? (
+                        <span>
+                          {selectedPatient.firstName} {selectedPatient.lastName}
+                          {selectedPatient.dni && (
+                            <span className="text-muted-foreground ml-2">
+                              (DNI: {selectedPatient.dni})
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          Buscar paciente...
+                        </span>
+                      )}
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                    <div className="flex flex-col">
+                      <div className="flex items-center border-b px-3">
+                        <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                        <Input
+                          placeholder="Buscar por nombre, DNI, teléfono o email..."
+                          value={patientSearchQuery}
+                          onChange={(e) => setPatientSearchQuery(e.target.value)}
+                          className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                          autoFocus
+                        />
+                      </div>
+                      <div className="max-h-[300px] overflow-y-auto">
+                        {filteredPatients.length === 0 ? (
+                          <div className="py-6 text-center text-sm text-muted-foreground">
+                            {patientSearchQuery
+                              ? "No se encontraron pacientes"
+                              : "Escribe para buscar pacientes"}
+                          </div>
+                        ) : (
+                          <div className="p-1">
+                            {filteredPatients.map((patient: any) => (
+                              <button
+                                key={patient.id}
+                                type="button"
+                                onClick={() => {
+                                  setFormData({
+                                    ...formData,
+                                    patientId: patient.id.toString(),
+                                  });
+                                  setPatientSearchOpen(false);
+                                  setPatientSearchQuery("");
+                                }}
+                                className={cn(
+                                  "w-full flex items-center justify-between px-3 py-2 text-sm rounded-sm hover:bg-accent cursor-pointer transition-colors",
+                                  formData.patientId === patient.id.toString() &&
+                                    "bg-accent"
+                                )}
+                              >
+                                <div className="flex flex-col items-start flex-1 min-w-0">
+                                  <span className="font-medium truncate w-full">
+                                    {patient.firstName} {patient.lastName}
+                                  </span>
+                                  <div className="flex gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
+                                    {patient.dni && (
+                                      <span>DNI: {patient.dni}</span>
+                                    )}
+                                    {patient.phone && (
+                                      <span>Tel: {patient.phone}</span>
+                                    )}
+                                  </div>
+                                </div>
+                                {formData.patientId === patient.id.toString() && (
+                                  <Check className="h-4 w-4 text-primary ml-2 shrink-0" />
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                {!formData.patientId && (
+                  <p className="text-xs text-destructive mt-1">
+                    Selecciona un paciente
+                  </p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
@@ -504,20 +650,51 @@ export function AppointmentDetailsDialog({
               <User className="h-5 w-5 text-primary" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-muted-foreground mb-1">
+              <p className="text-sm font-medium text-muted-foreground mb-2">
                 Paciente
               </p>
               <Link
                 href={`/dashboard/patients/${appointment.patient.id}`}
-                className="text-lg font-semibold hover:text-primary transition-colors"
+                className="text-lg font-semibold hover:text-primary transition-colors block mb-3"
               >
                 {appointment.patient.firstName} {appointment.patient.lastName}
               </Link>
-              {appointment.patient.dni && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  DNI: {appointment.patient.dni}
-                </p>
-              )}
+              <div className="grid grid-cols-2 gap-4">
+                {/* DNI */}
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">
+                    DNI
+                  </p>
+                  <p className="text-sm font-medium">
+                    {appointment.patient.dni || (
+                      <span className="text-muted-foreground italic">No disponible</span>
+                    )}
+                  </p>
+                </div>
+                {/* Teléfono con WhatsApp */}
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">
+                    Teléfono
+                  </p>
+                  {appointment.patient.phone ? (
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={getWhatsAppLink(appointment.patient.phone) || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-medium text-green-600 hover:text-green-700 flex items-center gap-1 transition-colors"
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                        {appointment.patient.phone}
+                      </a>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">
+                      No disponible
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -700,7 +877,7 @@ export function AppointmentDetailsDialog({
             Cerrar
           </Button>
           <Button onClick={() => setIsEditing(true)}>
-            Editar Turno
+              Editar Turno
           </Button>
         </div>
       </DialogContent>

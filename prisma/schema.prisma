@@ -58,6 +58,8 @@ model User {
   // Relations
   appointments   Appointment[]
   medicalRecords MedicalRecord[]
+  toothEvents    ToothEvent[]
+  ignoredDuplicateGroups IgnoredDuplicateGroup[]
 
   @@map("users")
 }
@@ -95,6 +97,8 @@ model Patient {
   appointments   Appointment[]
   medicalRecords MedicalRecord[]
   leads          Lead[]
+  toothEvents    ToothEvent[]
+  toothStates    ToothState[]
 
   @@map("patients")
 }
@@ -111,6 +115,7 @@ model Treatment {
 
   // Relations
   appointments Appointment[]
+  toothEvents  ToothEvent[]
 
   @@map("treatments")
 }
@@ -134,6 +139,7 @@ model Appointment {
   treatment     Treatment?     @relation(fields: [treatmentId], references: [id], onDelete: SetNull)
   user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
   medicalRecords MedicalRecord[]
+  toothEvents   ToothEvent[]
 
   @@index([userId, datetimeStart, datetimeEnd])
   @@map("appointments")
@@ -154,8 +160,53 @@ model MedicalRecord {
   patient     Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
   appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
   user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  toothEvents ToothEvent[]
 
   @@map("medical_records")
+}
+
+model ToothEvent {
+  id            Int      @id @default(autoincrement())
+  patientId     Int      @map("patient_id")
+  toothNumber   Int      @map("tooth_number") // FDI: 11-48
+  kind          String   // estado/procedimiento (healthy, caries, filled, etc.)
+  treatmentId   Int?     @map("treatment_id")
+  appointmentId Int?     @map("appointment_id")
+  medicalRecordId Int?   @map("medical_record_id")
+  note          String?  @db.Text
+  eventDate     DateTime @map("event_date")
+  createdByUserId Int?   @map("created_by_user_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  patient       Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  treatment     Treatment?     @relation(fields: [treatmentId], references: [id], onDelete: SetNull)
+  appointment   Appointment?   @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  medicalRecord MedicalRecord? @relation(fields: [medicalRecordId], references: [id], onDelete: SetNull)
+  createdByUser User?          @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  toothState    ToothState?    @relation("ToothStateLastEvent")
+
+  @@index([patientId, toothNumber, eventDate(sort: Desc)])
+  @@index([appointmentId])
+  @@index([medicalRecordId])
+  @@map("tooth_events")
+}
+
+model ToothState {
+  id            Int      @id @default(autoincrement())
+  patientId     Int      @map("patient_id")
+  toothNumber   Int      @map("tooth_number") // FDI: 11-48
+  currentStatus String   @map("current_status")
+  lastEventId   Int?     @unique @map("last_event_id")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  patient     Patient    @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  lastEvent   ToothEvent? @relation("ToothStateLastEvent", fields: [lastEventId], references: [id], onDelete: SetNull)
+
+  @@unique([patientId, toothNumber])
+  @@map("tooth_states")
 }
 
 model Lead {
@@ -175,4 +226,19 @@ model Lead {
   patient Patient? @relation(fields: [patientId], references: [id], onDelete: SetNull)
 
   @@map("leads")
+}
+
+model IgnoredDuplicateGroup {
+  id        Int      @id @default(autoincrement())
+  groupHash String   @unique @map("group_hash") // Hash de los IDs del grupo ordenados
+  patientIds String  @map("patient_ids") // JSON array de IDs de pacientes del grupo
+  reason    String?  // Razón opcional por la que se ignoró
+  ignoredBy Int?     @map("ignored_by") // ID del usuario que lo ignoró
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  ignoredByUser User? @relation(fields: [ignoredBy], references: [id], onDelete: SetNull)
+
+  @@map("ignored_duplicate_groups")
 }

@@ -187,6 +187,13 @@ async function findDuplicates(similarityThreshold: number = 80) {
   return duplicates;
 }
 
+// Genera un hash único para un grupo de pacientes (basado en IDs ordenados)
+function generateGroupHash(group: any[]): string {
+  const sortedIds = group.map((p) => p.id).sort((a, b) => a - b).join(",");
+  // Usar hash simple (en producción podrías usar crypto.createHash)
+  return Buffer.from(sortedIds).toString("base64");
+}
+
 // GET: Detectar duplicados
 export async function GET(request: Request) {
   try {
@@ -200,25 +207,35 @@ export async function GET(request: Request) {
 
     const duplicates = await findDuplicates(similarity);
 
-    // Formatear respuesta
-    const formatted = duplicates.map((group) => {
-      const main = selectMainPatient(group);
-      return {
-        group: group.map((p) => ({
-          id: p.id,
-          firstName: p.firstName,
-          lastName: p.lastName,
-          fullName: `${p.firstName} ${p.lastName}`,
-          dni: p.dni,
-          phone: p.phone,
-          email: p.email,
-          appointmentsCount: (p as any).appointmentsCount || 0,
-          medicalRecordsCount: (p as any).medicalRecordsCount || 0,
-          createdAt: p.createdAt,
-        })),
-        mainPatientId: main.id,
-      };
+    // Obtener grupos ignorados
+    const ignoredGroups = await prisma.ignoredDuplicateGroup.findMany({
+      select: { groupHash: true },
     });
+    const ignoredHashes = new Set(ignoredGroups.map((ig) => ig.groupHash));
+
+    // Formatear respuesta y filtrar ignorados
+    const formatted = duplicates
+      .map((group) => {
+        const main = selectMainPatient(group);
+        const groupHash = generateGroupHash(group);
+        return {
+          groupHash,
+          group: group.map((p) => ({
+            id: p.id,
+            firstName: p.firstName,
+            lastName: p.lastName,
+            fullName: `${p.firstName} ${p.lastName}`,
+            dni: p.dni,
+            phone: p.phone,
+            email: p.email,
+            appointmentsCount: (p as any).appointmentsCount || 0,
+            medicalRecordsCount: (p as any).medicalRecordsCount || 0,
+            createdAt: p.createdAt,
+          })),
+          mainPatientId: main.id,
+        };
+      })
+      .filter((group) => !ignoredHashes.has(group.groupHash));
 
     return NextResponse.json({
       duplicates: formatted,
@@ -357,6 +374,64 @@ export async function POST(request: Request) {
     console.error("Error unifying duplicates:", error);
     return NextResponse.json(
       { error: "Error unifying duplicates", details: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE: Ignorar grupo de duplicados (no unificar)
+export async function DELETE(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const groupHash = searchParams.get("groupHash");
+    const reason = searchParams.get("reason") || null;
+
+    if (!groupHash) {
+      return NextResponse.json(
+        { error: "groupHash is required" },
+        { status: 400 }
+      );
+    }
+
+    // Verificar si ya existe
+    const existing = await prisma.ignoredDuplicateGroup.findUnique({
+      where: { groupHash },
+    });
+
+    if (existing) {
+      return NextResponse.json({
+        success: true,
+        message: "Group already ignored",
+      });
+    }
+
+    // Obtener los IDs de pacientes del hash (decodificar base64)
+    const patientIdsString = Buffer.from(groupHash, "base64").toString();
+    const userId = session.user.id ? parseInt(session.user.id) : null;
+
+    // Crear registro de grupo ignorado
+    await prisma.ignoredDuplicateGroup.create({
+      data: {
+        groupHash,
+        patientIds: patientIdsString,
+        reason,
+        ignoredBy: userId,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Group ignored successfully",
+    });
+  } catch (error: any) {
+    console.error("Error ignoring duplicate group:", error);
+    return NextResponse.json(
+      { error: "Error ignoring duplicate group", details: error.message },
       { status: 500 }
     );
   }

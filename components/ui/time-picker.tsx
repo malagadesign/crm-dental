@@ -29,13 +29,15 @@ export function TimePicker({
   // Parsear valor actual
   const [hour, minute] = value ? value.split(":").map(Number) : [9, 0];
   
+  // Validar y normalizar minutos (asegurar que estén en 0-59)
+  const validMinute = isNaN(minute) || minute < 0 ? 0 : minute >= 60 ? 59 : minute;
+  const normalizedMinute = Math.round(validMinute / 30) * 30; // Normalizar a 0 o 30
+  
   // Asegurar que esté en el rango válido (9-20)
-  const validHour = hour < 9 ? 9 : hour > 20 ? 20 : hour;
+  const validHour = isNaN(hour) || hour < 9 ? 9 : hour > 20 ? 20 : hour;
   
   const [selectedHour, setSelectedHour] = useState<number>(validHour);
-  const [selectedMinute, setSelectedMinute] = useState<number>(
-    Math.round(minute / 30) * 30
-  );
+  const [selectedMinute, setSelectedMinute] = useState<number>(normalizedMinute);
   
   // Horas disponibles (9 a 20)
   const hours = Array.from({ length: 12 }, (_, i) => i + 9); // 9, 10, 11, ..., 20
@@ -45,17 +47,23 @@ export function TimePicker({
   React.useEffect(() => {
     if (value) {
       const [h, m] = value.split(":").map(Number);
-      const validH = h < 9 ? 9 : h > 20 ? 20 : h;
+      // Validar y normalizar minutos (asegurar que estén en 0-59)
+      const validM = isNaN(m) || m < 0 ? 0 : m >= 60 ? 59 : m;
+      const normalizedM = Math.round(validM / 30) * 30; // Normalizar a 0 o 30
+      const validH = isNaN(h) || h < 9 ? 9 : h > 20 ? 20 : h;
       setSelectedHour(validH);
-      setSelectedMinute(Math.round(m / 30) * 30);
+      setSelectedMinute(normalizedM);
     }
   }, [value]);
   
   const updateTime = (hour: number, minute: number) => {
     // Asegurar rango 9-20
     const finalHour = hour < 9 ? 9 : hour > 20 ? 20 : hour;
+    // Asegurar que los minutos estén en 0-59 y normalizados a 0 o 30
+    const validMinute = minute < 0 ? 0 : minute >= 60 ? 59 : minute;
+    const normalizedMinute = Math.round(validMinute / 30) * 30; // Normalizar a 0 o 30
     
-    const timeString = `${String(finalHour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+    const timeString = `${String(finalHour).padStart(2, "0")}:${String(normalizedMinute).padStart(2, "0")}`;
     onChange(timeString);
   };
   
@@ -69,8 +77,10 @@ export function TimePicker({
     updateTime(selectedHour, minute);
   };
   
+  // Asegurar que selectedMinute esté siempre en 0-59 para el display
+  const displayMinute = selectedMinute < 0 ? 0 : selectedMinute >= 60 ? 59 : selectedMinute;
   const displayValue = value
-    ? `${String(selectedHour).padStart(2, "0")}:${String(selectedMinute).padStart(2, "0")}`
+    ? `${String(selectedHour).padStart(2, "0")}:${String(displayMinute).padStart(2, "0")}`
     : "Seleccionar hora";
   
   return (

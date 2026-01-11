@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { AppointmentWithRelations, Clinic, Treatment, User, AppointmentStatus } from "@/types";
+import { Search, Check, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface AppointmentDialogProps {
   open: boolean;
@@ -62,11 +69,26 @@ async function createAppointment(data: any) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || "Error creating appointment");
+  
+  // Leer el body solo una vez
+  let responseData: any;
+  try {
+    const text = await response.text();
+    if (!text) {
+      throw new Error("Empty response from server");
+    }
+    responseData = JSON.parse(text);
+  } catch (e) {
+    // Si no se puede parsear como JSON, lanzar error
+    throw new Error("Invalid response format from server");
   }
-  return response.json();
+  
+  if (!response.ok) {
+    const errorMessage = responseData?.error || responseData?.details || "Error creating appointment";
+    throw new Error(errorMessage);
+  }
+  
+  return responseData;
 }
 
 async function updateAppointment(id: number, data: any) {
@@ -75,11 +97,26 @@ async function updateAppointment(id: number, data: any) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || "Error updating appointment");
+  
+  // Leer el body solo una vez
+  let responseData: any;
+  try {
+    const text = await response.text();
+    if (!text) {
+      throw new Error("Empty response from server");
+    }
+    responseData = JSON.parse(text);
+  } catch (e) {
+    // Si no se puede parsear como JSON, lanzar error
+    throw new Error("Invalid response format from server");
   }
-  return response.json();
+  
+  if (!response.ok) {
+    const errorMessage = responseData?.error || responseData?.details || "Error updating appointment";
+    throw new Error(errorMessage);
+  }
+  
+  return responseData;
 }
 
 export function AppointmentDialog({
@@ -110,6 +147,8 @@ export function AppointmentDialog({
     notes: "",
   });
   const [error, setError] = useState("");
+  const [patientSearchOpen, setPatientSearchOpen] = useState(false);
+  const [patientSearchQuery, setPatientSearchQuery] = useState("");
 
   const { data: patientsData } = useQuery({
     queryKey: ["patients", "all"],
@@ -118,6 +157,33 @@ export function AppointmentDialog({
   
   // Asegurar que patients sea un array
   const patients = Array.isArray(patientsData) ? patientsData : [];
+
+  // Filtrar pacientes según búsqueda
+  const filteredPatients = useMemo(() => {
+    if (!patientSearchQuery.trim()) {
+      return patients.slice(0, 50); // Limitar a 50 por rendimiento
+    }
+    
+    const query = patientSearchQuery.toLowerCase().trim();
+    return patients.filter((patient: any) => {
+      const fullName = `${patient.firstName} ${patient.lastName}`.toLowerCase();
+      const dni = patient.dni?.toLowerCase() || "";
+      const phone = patient.phone?.toLowerCase() || "";
+      const email = patient.email?.toLowerCase() || "";
+      
+      return (
+        fullName.includes(query) ||
+        dni.includes(query) ||
+        phone.includes(query) ||
+        email.includes(query)
+      );
+    }).slice(0, 50); // Limitar resultados a 50
+  }, [patients, patientSearchQuery]);
+
+  // Obtener paciente seleccionado para mostrar
+  const selectedPatient = patients.find(
+    (p: any) => p.id.toString() === formData.patientId
+  );
 
   const { data: clinics } = useQuery({
     queryKey: ["clinics"],
@@ -139,8 +205,20 @@ export function AppointmentDialog({
       const start = new Date(appointment.datetimeStart);
       const end = new Date(appointment.datetimeEnd);
       const dateStr = start.toISOString().slice(0, 10);
-      const timeStartStr = start.toTimeString().slice(0, 5);
-      const timeEndStr = end.toTimeString().slice(0, 5);
+      
+      // Normalizar hora de inicio (9-20, minutos a 0 o 30)
+      const startHour = start.getHours();
+      const startMinute = start.getMinutes();
+      const normalizedStartHour = startHour < 9 ? 9 : startHour > 20 ? 20 : startHour;
+      const normalizedStartMinute = Math.round(startMinute / 30) * 30;
+      const timeStartStr = `${String(normalizedStartHour).padStart(2, "0")}:${String(normalizedStartMinute).padStart(2, "0")}`;
+      
+      // Normalizar hora de fin (9-20, minutos a 0 o 30)
+      const endHour = end.getHours();
+      const endMinute = end.getMinutes();
+      const normalizedEndHour = endHour < 9 ? 9 : endHour > 20 ? 20 : endHour;
+      const normalizedEndMinute = Math.round(endMinute / 30) * 30;
+      const timeEndStr = `${String(normalizedEndHour).padStart(2, "0")}:${String(normalizedEndMinute).padStart(2, "0")}`;
       
       setFormData({
         patientId: appointment.patientId.toString(),
@@ -157,8 +235,20 @@ export function AppointmentDialog({
       const now = new Date();
       const defaultEnd = new Date(now.getTime() + 30 * 60000);
       const dateStr = now.toISOString().slice(0, 10);
-      const timeStartStr = now.toTimeString().slice(0, 5);
-      const timeEndStr = defaultEnd.toTimeString().slice(0, 5);
+      
+      // Normalizar hora de inicio (9-20, minutos a 0 o 30)
+      const startHour = now.getHours();
+      const startMinute = now.getMinutes();
+      const normalizedStartHour = startHour < 9 ? 9 : startHour > 20 ? 20 : startHour;
+      const normalizedStartMinute = Math.round(startMinute / 30) * 30;
+      const timeStartStr = `${String(normalizedStartHour).padStart(2, "0")}:${String(normalizedStartMinute).padStart(2, "0")}`;
+      
+      // Normalizar hora de fin (9-20, minutos a 0 o 30)
+      const endHour = defaultEnd.getHours();
+      const endMinute = defaultEnd.getMinutes();
+      const normalizedEndHour = endHour < 9 ? 9 : endHour > 20 ? 20 : endHour;
+      const normalizedEndMinute = Math.round(endMinute / 30) * 30;
+      const timeEndStr = `${String(normalizedEndHour).padStart(2, "0")}:${String(normalizedEndMinute).padStart(2, "0")}`;
       
       setFormData({
         patientId: "",
@@ -173,11 +263,16 @@ export function AppointmentDialog({
       });
     }
     setError("");
+    setPatientSearchQuery("");
+    setPatientSearchOpen(false);
   }, [appointment, open]);
 
   // Calcular timeEnd automáticamente cuando cambia treatmentId o timeStart
   useEffect(() => {
     if (!formData.timeStart) return;
+    
+    // Validar formato de hora
+    if (!/^\d{2}:\d{2}$/.test(formData.timeStart)) return;
     
     let durationMinutes = 30; // Por defecto 30 minutos
     
@@ -192,25 +287,31 @@ export function AppointmentDialog({
     
     // Calcular hora fin
     const [startHour, startMinute] = formData.timeStart.split(":").map(Number);
+    
+    // Validar valores
+    if (isNaN(startHour) || isNaN(startMinute) || startMinute < 0 || startMinute >= 60) {
+      return;
+    }
+    
     const startTotalMinutes = startHour * 60 + startMinute;
     const endTotalMinutes = startTotalMinutes + durationMinutes;
     const endHour = Math.floor(endTotalMinutes / 60);
     const endMinute = endTotalMinutes % 60;
     
-    // Asegurar que no pase de las 20:00
-    if (endHour > 20 || (endHour === 20 && endMinute > 0)) {
-      const timeEndStr = "20:00";
-      setFormData((prev) => ({
-        ...prev,
-        timeEnd: timeEndStr,
-      }));
-    } else {
-      const timeEndStr = `${String(endHour).padStart(2, "0")}:${String(endMinute).padStart(2, "0")}`;
-      setFormData((prev) => ({
-        ...prev,
-        timeEnd: timeEndStr,
-      }));
-    }
+    // Asegurar que esté en el rango válido (9-20) y normalizar minutos a 0 o 30
+    const finalHour = Math.min(Math.max(endHour, 9), 20); // Limitar entre 9 y 20
+    const normalizedEndMinute = Math.round(endMinute / 30) * 30; // Normalizar a 0 o 30
+    const finalMinute = finalHour === 20 ? 0 : normalizedEndMinute;
+    
+    const timeEndStr = `${String(finalHour).padStart(2, "0")}:${String(finalMinute).padStart(2, "0")}`;
+    
+    setFormData((prev) => {
+      // Solo actualizar si el valor cambió
+      if (prev.timeEnd !== timeEndStr) {
+        return { ...prev, timeEnd: timeEndStr };
+      }
+      return prev;
+    });
   }, [formData.treatmentId, formData.timeStart, treatments]);
 
   const mutation = useMutation({
@@ -273,27 +374,99 @@ export function AppointmentDialog({
             )}
             <div className="grid gap-2">
               <Label htmlFor="patientId">Paciente *</Label>
-              <Select
-                value={formData.patientId}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, patientId: value })
-                }
-                required
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar paciente" />
-                </SelectTrigger>
-                <SelectContent>
-                  {patients?.map((patient: any) => (
-                    <SelectItem
-                      key={patient.id}
-                      value={patient.id.toString()}
-                    >
-                      {patient.firstName} {patient.lastName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={patientSearchOpen} onOpenChange={setPatientSearchOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={patientSearchOpen}
+                    className="w-full justify-between h-10 font-normal"
+                  >
+                    {selectedPatient ? (
+                      <span>
+                        {selectedPatient.firstName} {selectedPatient.lastName}
+                        {selectedPatient.dni && (
+                          <span className="text-muted-foreground ml-2">
+                            (DNI: {selectedPatient.dni})
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        Buscar paciente...
+                      </span>
+                    )}
+                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                  <div className="flex flex-col">
+                    <div className="flex items-center border-b px-3">
+                      <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                      <Input
+                        placeholder="Buscar por nombre, DNI, teléfono o email..."
+                        value={patientSearchQuery}
+                        onChange={(e) => setPatientSearchQuery(e.target.value)}
+                        className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="max-h-[300px] overflow-y-auto">
+                      {filteredPatients.length === 0 ? (
+                        <div className="py-6 text-center text-sm text-muted-foreground">
+                          {patientSearchQuery
+                            ? "No se encontraron pacientes"
+                            : "Escribe para buscar pacientes"}
+                        </div>
+                      ) : (
+                        <div className="p-1">
+                          {filteredPatients.map((patient: any) => (
+                            <button
+                              key={patient.id}
+                              type="button"
+                              onClick={() => {
+                                setFormData({
+                                  ...formData,
+                                  patientId: patient.id.toString(),
+                                });
+                                setPatientSearchOpen(false);
+                                setPatientSearchQuery("");
+                              }}
+                              className={cn(
+                                "w-full flex items-center justify-between px-3 py-2 text-sm rounded-sm hover:bg-accent cursor-pointer transition-colors",
+                                formData.patientId === patient.id.toString() &&
+                                  "bg-accent"
+                              )}
+                            >
+                              <div className="flex flex-col items-start flex-1 min-w-0">
+                                <span className="font-medium truncate w-full">
+                                  {patient.firstName} {patient.lastName}
+                                </span>
+                                <div className="flex gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
+                                  {patient.dni && (
+                                    <span>DNI: {patient.dni}</span>
+                                  )}
+                                  {patient.phone && (
+                                    <span>Tel: {patient.phone}</span>
+                                  )}
+                                </div>
+                              </div>
+                              {formData.patientId === patient.id.toString() && (
+                                <Check className="h-4 w-4 text-primary ml-2 shrink-0" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              {!formData.patientId && (
+                <p className="text-xs text-destructive mt-1">
+                  Selecciona un paciente
+                </p>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
@@ -363,10 +536,10 @@ export function AppointmentDialog({
                   {users
                     ?.filter((user: User) => user.role === "odontologo")
                     .map((user: User) => (
-                      <SelectItem key={user.id} value={user.id.toString()}>
-                        {user.name}
-                      </SelectItem>
-                    ))}
+                    <SelectItem key={user.id} value={user.id.toString()}>
+                      {user.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

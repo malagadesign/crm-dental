@@ -205,13 +205,13 @@ export function PatientDialog({ open, onOpenChange, patient }: PatientDialogProp
                 </Button>
               </div>
             )}
-            <form onSubmit={handleSubmit}>
-              <div className="grid gap-4 py-4">
-                {error && (
-                  <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
-                    {error}
-                  </div>
-                )}
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4 py-4">
+            {error && (
+              <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
+                {error}
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="firstName">Nombre *</Label>

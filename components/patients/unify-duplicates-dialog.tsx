@@ -13,9 +13,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
+import { Users, AlertTriangle, CheckCircle2, Loader2, X } from "lucide-react";
 
 interface DuplicateGroup {
+  groupHash: string;
   group: Array<{
     id: number;
     firstName: string;
@@ -55,6 +56,24 @@ async function unifyDuplicates(groupIds: number[], mainPatientId: number) {
   return response.json();
 }
 
+async function ignoreGroup(groupHash: string, reason?: string) {
+  const params = new URLSearchParams({ groupHash });
+  if (reason) {
+    params.append("reason", reason);
+  }
+  const response = await fetch(
+    `/api/patients/unify-duplicates?${params.toString()}`,
+    {
+      method: "DELETE",
+    }
+  );
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Error ignoring group");
+  }
+  return response.json();
+}
+
 interface UnifyDuplicatesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -85,12 +104,34 @@ export function UnifyDuplicatesDialog({
     },
   });
 
+  const ignoreMutation = useMutation({
+    mutationFn: ({ groupHash, reason }: { groupHash: string; reason?: string }) =>
+      ignoreGroup(groupHash, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["duplicates"] });
+      refetch();
+    },
+  });
+
   const handleUnifyGroup = (group: DuplicateGroup) => {
     const groupIds = group.group.map((p) => p.id);
     unifyMutation.mutate({
       groupIds,
       mainPatientId: group.mainPatientId,
     });
+  };
+
+  const handleIgnoreGroup = (group: DuplicateGroup) => {
+    if (
+      confirm(
+        "¿Estás seguro de que deseas ignorar este grupo? No aparecerá más en la lista de duplicados."
+      )
+    ) {
+      ignoreMutation.mutate({
+        groupHash: group.groupHash,
+        reason: "Usuario decidió que no son duplicados",
+      });
+    }
   };
 
   const handleUnifySelected = () => {
@@ -188,29 +229,40 @@ export function UnifyDuplicatesDialog({
                       }`}
                     >
                       <CardContent className="pt-6">
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() =>
-                                toggleGroupSelection(group.group[0].id)
-                              }
-                              className="mt-1"
-                            />
-                            <AlertTriangle className="h-5 w-5 text-orange-500" />
-                            <span className="font-semibold">
-                              Grupo {index + 1} - {group.group.length} pacientes
-                            </span>
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() =>
+                                  toggleGroupSelection(group.group[0].id)
+                                }
+                                className="mt-1"
+                              />
+                              <AlertTriangle className="h-5 w-5 text-orange-500" />
+                              <span className="font-semibold">
+                                Grupo {index + 1} - {group.group.length} pacientes
+                              </span>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleIgnoreGroup(group)}
+                                disabled={ignoreMutation.isPending || unifyMutation.isPending}
+                              >
+                                <X className="h-4 w-4 mr-1" />
+                                Ignorar Grupo
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => handleUnifyGroup(group)}
+                                disabled={unifyMutation.isPending || ignoreMutation.isPending}
+                              >
+                                Unificar Grupo
+                              </Button>
+                            </div>
                           </div>
-                          <Button
-                            size="sm"
-                            onClick={() => handleUnifyGroup(group)}
-                            disabled={unifyMutation.isPending}
-                          >
-                            Unificar Grupo
-                          </Button>
-                        </div>
 
                         <div className="space-y-3">
                           {/* Paciente principal */}
