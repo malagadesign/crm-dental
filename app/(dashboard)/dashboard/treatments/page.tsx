@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Stethoscope, Plus, Pencil, Trash2, CheckCircle2, XCircle } from "lucide-react";
+import { Stethoscope, Plus, Pencil, Trash2, CheckCircle2, XCircle, Search } from "lucide-react";
 import { TreatmentDialog } from "@/components/treatments/treatment-dialog";
 import { Treatment } from "@prisma/client";
 import { formatCurrency } from "@/lib/utils";
@@ -26,11 +27,27 @@ export default function TreatmentsPage() {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTreatment, setEditingTreatment] = useState<Treatment | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: treatments, isLoading } = useQuery({
     queryKey: ["treatments"],
     queryFn: fetchTreatments,
   });
+
+  // Filtrar tratamientos por búsqueda
+  const filteredTreatments = useMemo(() => {
+    if (!treatments) return [];
+    if (!searchQuery.trim()) return treatments;
+    
+    const query = searchQuery.toLowerCase().trim();
+    return treatments.filter((treatment) => {
+      return (
+        treatment.name.toLowerCase().includes(query) ||
+        (treatment.description && treatment.description.toLowerCase().includes(query)) ||
+        treatment.price.toString().includes(query)
+      );
+    });
+  }, [treatments, searchQuery]);
 
   const deleteMutation = useMutation({
     mutationFn: deleteTreatment,
@@ -70,11 +87,26 @@ export default function TreatmentsPage() {
         </Button>
       </div>
 
+      {/* Buscador */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nombre, descripción o precio..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 h-11"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       {isLoading ? (
         <div className="text-center py-12">Cargando...</div>
-      ) : treatments && treatments.length > 0 ? (
+      ) : filteredTreatments && filteredTreatments.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {treatments.map((treatment) => (
+          {filteredTreatments.map((treatment) => (
             <Card key={treatment.id}>
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -132,12 +164,16 @@ export default function TreatmentsPage() {
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Stethoscope className="h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-muted-foreground mb-4">
-              No hay tratamientos registrados
+              {searchQuery
+                ? "No se encontraron tratamientos con ese criterio"
+                : "No hay tratamientos registrados"}
             </p>
-            <Button onClick={handleCreate}>
-              <Plus className="mr-2 h-4 w-4" />
-              Crear Primer Tratamiento
-            </Button>
+            {!searchQuery && (
+              <Button onClick={handleCreate}>
+                <Plus className="mr-2 h-4 w-4" />
+                Crear Primer Tratamiento
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}

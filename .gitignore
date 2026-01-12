@@ -57,3 +57,7 @@ Thumbs.db
 
 # Old Next.js folder (moved to root)
 /nextjs-crm
+
+# SQL scripts (reference only, not executed automatically)
+*.sql
+SQL_*.sql

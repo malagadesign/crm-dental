@@ -12,6 +12,7 @@ import {
   UserPlus,
   LogOut,
   UserCog,
+  Package,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ const navigation = [
   { name: "Calendario", href: "/dashboard/calendar", icon: Calendar },
   { name: "Consultorios", href: "/dashboard/clinics", icon: Building2 },
   { name: "Tratamientos", href: "/dashboard/treatments", icon: Stethoscope },
+  { name: "Materiales", href: "/dashboard/materials", icon: Package },
   { name: "Leads", href: "/dashboard/leads", icon: UserPlus },
   { name: "Usuarios", href: "/dashboard/users", icon: UserCog },
 ];

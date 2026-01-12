@@ -36,22 +36,58 @@ export default function CalendarPage() {
   });
 
   // Convertir appointments a eventos de FullCalendar
-  const events = appointments?.map((apt) => ({
-    id: apt.id.toString(),
-    title: `${apt.patient.firstName} ${apt.patient.lastName}`,
-    start: new Date(apt.datetimeStart).toISOString(),
-    end: new Date(apt.datetimeEnd).toISOString(),
-    backgroundColor: getStatusColor(apt.status),
-    borderColor: getStatusColor(apt.status),
-    extendedProps: {
-      patient: apt.patient,
-      clinic: apt.clinic,
-      treatment: apt.treatment,
-      user: apt.user,
-      status: apt.status,
-      notes: apt.notes,
-    },
-  })) || [];
+  const events = appointments?.map((apt) => {
+    // Asegurarse de que las fechas sean objetos Date válidos
+    const startDate = apt.datetimeStart instanceof Date 
+      ? apt.datetimeStart 
+      : new Date(apt.datetimeStart);
+    const endDate = apt.datetimeEnd instanceof Date 
+      ? apt.datetimeEnd 
+      : new Date(apt.datetimeEnd);
+    
+    // Validar que las fechas sean válidas
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      console.warn("Invalid date for appointment:", apt.id, apt.datetimeStart, apt.datetimeEnd);
+      return null;
+    }
+    
+    // Usar formato ISO para FullCalendar (asegurar que incluya hora)
+    // FullCalendar espera fechas en formato ISO 8601 con zona horaria
+    const startISO = startDate.toISOString();
+    const endISO = endDate.toISOString();
+    
+    // Debug para eventos del día 12
+    if (startDate.getDate() === 12 && startDate.getMonth() === 0 && startDate.getFullYear() === 2026) {
+      console.log("Event for Jan 12:", {
+        id: apt.id,
+        patient: `${apt.patient.firstName} ${apt.patient.lastName}`,
+        startISO,
+        endISO,
+        startLocal: startDate.toString(),
+        startHour: startDate.getHours(),
+        startMinute: startDate.getMinutes(),
+      });
+    }
+    
+    return {
+      id: apt.id.toString(),
+      title: `${apt.patient.firstName} ${apt.patient.lastName}`,
+      start: startISO,
+      end: endISO,
+      allDay: false, // Asegurar que no sean eventos de día completo
+      backgroundColor: getStatusColor(apt.status),
+      borderColor: getStatusColor(apt.status),
+      display: "block", // Mostrar como bloque en vistas de tiempo
+      extendedProps: {
+        patient: apt.patient,
+        clinic: apt.clinic,
+        treatment: apt.treatment,
+        user: apt.user,
+        status: apt.status,
+        notes: apt.notes,
+      },
+    };
+  }).filter((event) => event !== null) || [];
 
   const handleDateClick = (info: any) => {
     // Aquí podrías abrir un modal para crear un nuevo turno
@@ -69,10 +105,14 @@ export default function CalendarPage() {
     }
   };
 
+  const handleViewChange = (newView: "dayGridMonth" | "timeGridWeek" | "timeGridDay") => {
+    setView(newView);
+  };
+
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Calendario</h1>
           <p className="text-muted-foreground">
@@ -83,21 +123,24 @@ export default function CalendarPage() {
           <Button
             variant={view === "dayGridMonth" ? "default" : "outline"}
             size="sm"
-            onClick={() => setView("dayGridMonth")}
+            onClick={() => handleViewChange("dayGridMonth")}
+            className="flex-1 sm:flex-initial"
           >
             Mes
           </Button>
           <Button
             variant={view === "timeGridWeek" ? "default" : "outline"}
             size="sm"
-            onClick={() => setView("timeGridWeek")}
+            onClick={() => handleViewChange("timeGridWeek")}
+            className="flex-1 sm:flex-initial"
           >
             Semana
           </Button>
           <Button
             variant={view === "timeGridDay" ? "default" : "outline"}
             size="sm"
-            onClick={() => setView("timeGridDay")}
+            onClick={() => handleViewChange("timeGridDay")}
+            className="flex-1 sm:flex-initial"
           >
             Día
           </Button>
@@ -114,11 +157,12 @@ export default function CalendarPage() {
           ) : (
             <div className="calendar-container">
               <FullCalendarWrapper
+                key={view}
                 initialView={view}
                 headerToolbar={{
                   left: "prev,next today",
                   center: "title",
-                  right: "dayGridMonth,timeGridWeek,timeGridDay",
+                  right: "", // Ocultar botones de vista, usar los personalizados
                 }}
                 buttonText={{
                   today: "Hoy",
@@ -133,6 +177,11 @@ export default function CalendarPage() {
                 locale="es"
                 height="auto"
                 eventDisplay="block"
+                eventTimeFormat={{
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  meridiem: "short",
+                }}
                 dayMaxEvents={3}
                 moreLinkClick="popover"
                 // Configuración de horario para vistas de tiempo (9:00 - 20:00)
@@ -168,6 +217,13 @@ export default function CalendarPage() {
                     slotMaxTime: "20:00:00",
                     slotDuration: "00:30:00",
                     snapDuration: "00:30:00",
+                    slotLabelInterval: "01:00:00",
+                    slotLabelFormat: {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      omitZeroMinute: true,
+                      meridiem: "short",
+                    },
                   },
                 }}
               />

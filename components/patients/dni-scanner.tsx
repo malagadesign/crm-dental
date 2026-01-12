@@ -177,6 +177,7 @@ export function DNIScanner({ onDataExtracted, onClose }: DNIScannerProps) {
                     ref={frontInputRef}
                     type="file"
                     accept="image/*"
+                    capture="environment"
                     className="hidden"
                     onChange={(e) => handleImageSelect(e, "front")}
                   />
@@ -227,6 +228,7 @@ export function DNIScanner({ onDataExtracted, onClose }: DNIScannerProps) {
                     ref={backInputRef}
                     type="file"
                     accept="image/*"
+                    capture="environment"
                     className="hidden"
                     onChange={(e) => handleImageSelect(e, "back")}
                   />

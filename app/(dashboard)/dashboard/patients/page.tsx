@@ -140,22 +140,23 @@ export default function PatientsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Pacientes</h1>
           <p className="text-muted-foreground">
             Gestiona el registro de pacientes
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <Button
             variant="outline"
             onClick={() => setIsDuplicatesDialogOpen(true)}
+            className="w-full sm:w-auto"
           >
             <Merge className="mr-2 h-4 w-4" />
             Unificar Duplicados
           </Button>
-          <Button onClick={handleCreate}>
+          <Button onClick={handleCreate} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Nuevo Paciente
           </Button>
@@ -195,7 +196,78 @@ export default function PatientsPage() {
             </div>
           ) : data && data.data.length > 0 ? (
             <>
-              <div className="rounded-md border">
+              {/* Vista móvil: Cards */}
+              <div className="block md:hidden space-y-3">
+                {data.data.map((patient) => (
+                  <Card key={patient.id} className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => handleEdit(patient)}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h3 className="font-semibold text-lg truncate">
+                              {patient.firstName} {patient.lastName}
+                            </h3>
+                          </div>
+                          <div className="space-y-1 text-sm text-muted-foreground">
+                            {patient.dni && (
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">DNI:</span>
+                                <span>{patient.dni}</span>
+                              </div>
+                            )}
+                            {patient.phone && (
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">Tel:</span>
+                                <span>{patient.phone}</span>
+                              </div>
+                            )}
+                            {patient.email && (
+                              <div className="flex items-center gap-2 truncate">
+                                <span className="font-medium">Email:</span>
+                                <span className="truncate">{patient.email}</span>
+                              </div>
+                            )}
+                            {patient.birthDate && (
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">Nacimiento:</span>
+                                <span>{new Date(patient.birthDate).toLocaleDateString("es-AR")}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 px-3"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(patient);
+                            }}
+                          >
+                            <Pencil className="h-4 w-4 mr-1" />
+                            <span className="text-xs">Editar</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 px-3 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(patient.id);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Vista desktop: Tabla */}
+              <div className="hidden md:block rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -315,8 +387,8 @@ export default function PatientsPage() {
 
               {/* Paginación */}
               {data.pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <div className="text-sm text-muted-foreground">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
+                  <div className="text-sm text-muted-foreground text-center sm:text-left">
                     Mostrando{" "}
                     {(data.pagination.page - 1) * data.pagination.limit + 1} -{" "}
                     {Math.min(
@@ -325,17 +397,18 @@ export default function PatientsPage() {
                     )}{" "}
                     de {data.pagination.total} pacientes
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-center">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handlePageChange(page - 1)}
                       disabled={page === 1}
+                      className="flex-1 sm:flex-initial"
                     >
-                      <ChevronLeft className="h-4 w-4" />
-                      Anterior
+                      <ChevronLeft className="h-4 w-4 mr-1 sm:mr-0" />
+                      <span className="sm:hidden">Anterior</span>
                     </Button>
-                    <div className="flex items-center gap-1">
+                    <div className="hidden sm:flex items-center gap-1">
                       {Array.from(
                         { length: data.pagination.totalPages },
                         (_, i) => i + 1
@@ -371,14 +444,19 @@ export default function PatientsPage() {
                           );
                         })}
                     </div>
+                    {/* Versión móvil: mostrar página actual */}
+                    <div className="sm:hidden text-sm font-medium px-3">
+                      Página {page} de {data.pagination.totalPages}
+                    </div>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handlePageChange(page + 1)}
                       disabled={page === data.pagination.totalPages}
+                      className="flex-1 sm:flex-initial"
                     >
-                      Siguiente
-                      <ChevronRight className="h-4 w-4" />
+                      <span className="sm:hidden">Siguiente</span>
+                      <ChevronRight className="h-4 w-4 ml-1 sm:ml-0" />
                     </Button>
                   </div>
                 </div>

@@ -60,6 +60,7 @@ model User {
   medicalRecords MedicalRecord[]
   toothEvents    ToothEvent[]
   ignoredDuplicateGroups IgnoredDuplicateGroup[]
+  stockMovements StockMovement[]
 
   @@map("users")
 }
@@ -241,4 +242,74 @@ model IgnoredDuplicateGroup {
   ignoredByUser User? @relation(fields: [ignoredBy], references: [id], onDelete: SetNull)
 
   @@map("ignored_duplicate_groups")
+}
+
+enum MaterialUnit {
+  unidades
+  cajas
+  kg
+  litros
+  paquetes
+  rollos
+  frascos
+  bidones
+  bolsas
+  kits
+  packs
+}
+
+enum StockMovementType {
+  entrada
+  salida
+  ajuste
+}
+
+model Material {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?  @db.Text
+  unit        MaterialUnit @default(unidades)
+  price       Decimal? @db.Decimal(10, 2) // Nullable según SQL V2
+  minStock    Decimal  @default(0) @map("min_stock") // Stock mínimo antes de alertar
+  currentStock Decimal @default(0) @map("current_stock") // Stock actual
+  targetStock Decimal  @default(0) @map("target_stock") // Stock objetivo para reposición
+  category    String?  // Categoría opcional (consumibles, materiales dentales, instrumentos, etc.)
+  active      Boolean  @default(true)
+  deletedAt   DateTime? @map("deleted_at")
+  sku         String?  @unique // Código interno único opcional
+  critical    Boolean  @default(false) // Material crítico
+  consumable  Boolean  @default(true) // Si es consumible
+  purchaseUnitLabel String? @map("purchase_unit_label") // Etiqueta de unidad de compra
+  purchaseUnitSize Decimal? @db.Decimal(10, 2) @map("purchase_unit_size") // Tamaño de unidad de compra
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  stockMovements StockMovement[]
+
+  @@index([category])
+  @@index([active])
+  @@index([sku])
+  @@map("materials")
+}
+
+model StockMovement {
+  id          Int      @id @default(autoincrement())
+  materialId  Int      @map("material_id")
+  type        StockMovementType // entrada, salida, ajuste
+  quantity    Decimal  @db.Decimal(10, 2) // Cantidad (positiva para entrada, negativa para salida)
+  reason      String?  @db.Text // Motivo/nota del movimiento
+  userId      Int?     @map("user_id") // Usuario que realizó el movimiento
+  metadata    Json?    // JSONB para metadata adicional (ej: clinicId, clinicName)
+  movementDate DateTime @default(now()) @map("movement_date")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  material    Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([materialId, movementDate(sort: Desc)])
+  @@index([type])
+  @@map("stock_movements")
 }

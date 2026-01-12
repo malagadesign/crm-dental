@@ -192,19 +192,17 @@ export function PatientDialog({ open, onOpenChange, patient }: PatientDialogProp
           />
         ) : (
           <>
-            {!patient && (
-              <div className="mb-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowDNIScanner(true)}
-                  className="w-full"
-                >
-                  <Scan className="mr-2 h-4 w-4" />
-                  Escanear DNI para extraer datos automáticamente
-                </Button>
-              </div>
-            )}
+            <div className="mb-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowDNIScanner(true)}
+                className="w-full"
+              >
+                <Scan className="mr-2 h-4 w-4" />
+                {patient ? "Escanear DNI para actualizar datos" : "Escanear DNI para extraer datos automáticamente"}
+              </Button>
+            </div>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             {error && (
