@@ -204,16 +204,16 @@ export function AppointmentDialog({
     if (appointment) {
       const start = new Date(appointment.datetimeStart);
       const end = new Date(appointment.datetimeEnd);
-      const dateStr = start.toISOString().slice(0, 10);
+      // Usar fecha local (no UTC) para mostrar el día correcto en la zona del usuario
+      const dateStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`;
       
-      // Normalizar hora de inicio (9-20, minutos a 0 o 30)
+      // Horas en hora local del usuario
       const startHour = start.getHours();
       const startMinute = start.getMinutes();
       const normalizedStartHour = startHour < 9 ? 9 : startHour > 20 ? 20 : startHour;
       const normalizedStartMinute = Math.round(startMinute / 30) * 30;
       const timeStartStr = `${String(normalizedStartHour).padStart(2, "0")}:${String(normalizedStartMinute).padStart(2, "0")}`;
       
-      // Normalizar hora de fin (9-20, minutos a 0 o 30)
       const endHour = end.getHours();
       const endMinute = end.getMinutes();
       const normalizedEndHour = endHour < 9 ? 9 : endHour > 20 ? 20 : endHour;
@@ -267,8 +267,9 @@ export function AppointmentDialog({
     setPatientSearchOpen(false);
   }, [appointment, open]);
 
-  // Calcular timeEnd automáticamente cuando cambia treatmentId o timeStart
+  // Calcular timeEnd automáticamente cuando cambia treatmentId o timeStart (solo en creación, no al editar)
   useEffect(() => {
+    if (appointment) return;
     if (!formData.timeStart) return;
     
     // Validar formato de hora
@@ -333,9 +334,14 @@ export function AppointmentDialog({
     e.preventDefault();
     setError("");
     
-    // Combinar fecha y horas en datetimeStart y datetimeEnd
-    const datetimeStart = `${formData.date}T${formData.timeStart}:00`;
-    const datetimeEnd = `${formData.date}T${formData.timeEnd}:00`;
+    // Incluir zona horaria del cliente para que el servidor guarde el instante correcto
+    const offsetMin = -new Date().getTimezoneOffset();
+    const offsetSign = offsetMin >= 0 ? "+" : "-";
+    const offsetAbs = Math.abs(offsetMin);
+    const offsetStr = offsetSign + String(Math.floor(offsetAbs / 60)).padStart(2, "0") + ":" + String(offsetAbs % 60).padStart(2, "0");
+    
+    const datetimeStart = `${formData.date}T${formData.timeStart}:00${offsetStr}`;
+    const datetimeEnd = `${formData.date}T${formData.timeEnd}:00${offsetStr}`;
     
     // Convertir valores especiales a strings vacíos antes de enviar
     const submitData = {

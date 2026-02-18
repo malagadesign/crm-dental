@@ -230,7 +230,8 @@ export function AppointmentDetailsDialog({
     if (appointment && open) {
       const start = new Date(appointment.datetimeStart);
       const end = new Date(appointment.datetimeEnd);
-      const dateStr = start.toISOString().slice(0, 10);
+      // Usar fecha y hora local (no UTC) para el formulario
+      const dateStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`;
       const timeStartStr = start.toTimeString().slice(0, 5);
       const timeEndStr = end.toTimeString().slice(0, 5);
       
@@ -258,9 +259,9 @@ export function AppointmentDetailsDialog({
     }
   }, [appointment, open]);
 
-  // Calcular timeEnd automáticamente cuando cambia treatmentId o timeStart
+  // Calcular timeEnd automáticamente solo al crear; al editar no sobrescribir hora de fin
   useEffect(() => {
-    if (!isEditing || !formData.timeStart) return;
+    if (!isEditing || !formData.timeStart || appointment) return;
     
     // Validar formato de hora
     if (!/^\d{2}:\d{2}$/.test(formData.timeStart)) return;
@@ -328,8 +329,14 @@ export function AppointmentDetailsDialog({
     
     setError("");
     
-    const datetimeStart = `${formData.date}T${formData.timeStart}:00`;
-    const datetimeEnd = `${formData.date}T${formData.timeEnd}:00`;
+    // Incluir zona horaria del cliente para que el servidor guarde el instante correcto
+    const offsetMin = -new Date().getTimezoneOffset();
+    const offsetSign = offsetMin >= 0 ? "+" : "-";
+    const offsetAbs = Math.abs(offsetMin);
+    const offsetStr = offsetSign + String(Math.floor(offsetAbs / 60)).padStart(2, "0") + ":" + String(offsetAbs % 60).padStart(2, "0");
+    
+    const datetimeStart = `${formData.date}T${formData.timeStart}:00${offsetStr}`;
+    const datetimeEnd = `${formData.date}T${formData.timeEnd}:00${offsetStr}`;
     
     const submitData = {
       patientId: formData.patientId,
