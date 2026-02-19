@@ -165,8 +165,11 @@ export function AppointmentDetailsDialog({
     queryFn: fetchPatients,
     enabled: isEditing,
   });
-  
-  const patients = Array.isArray(patientsData) ? patientsData : [];
+
+  const patients = useMemo(
+    () => (Array.isArray(patientsData) ? patientsData : []),
+    [patientsData]
+  );
 
   // Filtrar pacientes según búsqueda
   const filteredPatients = useMemo(() => {
@@ -309,7 +312,7 @@ export function AppointmentDetailsDialog({
       }
       return prev;
     });
-  }, [formData.treatmentId, formData.timeStart, treatments, isEditing]);
+  }, [formData.treatmentId, formData.timeStart, treatments, isEditing, appointment]);
 
   const mutation = useMutation({
     mutationFn: (data: any) => appointment ? updateAppointment(appointment.id, data) : Promise.resolve(),

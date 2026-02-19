@@ -154,9 +154,11 @@ export function AppointmentDialog({
     queryKey: ["patients", "all"],
     queryFn: fetchPatients,
   });
-  
-  // Asegurar que patients sea un array
-  const patients = Array.isArray(patientsData) ? patientsData : [];
+
+  const patients = useMemo(
+    () => (Array.isArray(patientsData) ? patientsData : []),
+    [patientsData]
+  );
 
   // Filtrar pacientes según búsqueda
   const filteredPatients = useMemo(() => {
@@ -313,7 +315,7 @@ export function AppointmentDialog({
       }
       return prev;
     });
-  }, [formData.treatmentId, formData.timeStart, treatments]);
+  }, [formData.treatmentId, formData.timeStart, treatments, appointment]);
 
   const mutation = useMutation({
     mutationFn: (data: any) =>
