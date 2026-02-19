@@ -92,24 +92,26 @@ export async function POST(request: Request) {
       notes,
     } = body;
 
-    if (!firstName || !lastName) {
+    const trimmedFirst = typeof firstName === "string" ? firstName.trim() : "";
+    const trimmedLast = typeof lastName === "string" ? lastName.trim() : "";
+    if (!trimmedFirst || !trimmedLast) {
       return NextResponse.json(
-        { error: "First name and last name are required" },
+        { error: "Nombre y apellido son obligatorios" },
         { status: 400 }
       );
     }
 
     const patient = await prisma.patient.create({
       data: {
-        firstName,
-        lastName,
-        dni,
+        firstName: trimmedFirst,
+        lastName: trimmedLast,
+        dni: typeof dni === "string" ? dni.trim() || null : null,
         birthDate: birthDate ? new Date(birthDate) : null,
-        phone,
-        email,
-        address,
+        phone: typeof phone === "string" ? phone.trim() || null : null,
+        email: typeof email === "string" ? email.trim() || null : null,
+        address: typeof address === "string" ? address.trim() || null : null,
         origin: origin || "otro",
-        notes,
+        notes: typeof notes === "string" ? notes.trim() || null : null,
       },
     });
 

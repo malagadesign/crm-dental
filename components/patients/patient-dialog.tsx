@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,6 +84,8 @@ export function PatientDialog({ open, onOpenChange, patient }: PatientDialogProp
   });
   const [error, setError] = useState("");
   const [showDNIScanner, setShowDNIScanner] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const errorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (patient) {
@@ -114,6 +116,7 @@ export function PatientDialog({ open, onOpenChange, patient }: PatientDialogProp
       });
     }
     setError("");
+    setIsSubmitting(false);
   }, [patient, open]);
 
   const mutation = useMutation({
@@ -136,29 +139,47 @@ export function PatientDialog({ open, onOpenChange, patient }: PatientDialogProp
         notes: "",
       });
       setError("");
+      setIsSubmitting(false);
     },
     onError: (error: Error) => {
       setError(error.message);
+      setIsSubmitting(false);
+      errorRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    },
+    onSettled: () => {
+      setIsSubmitting(false);
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    
-    // Convertir formData al formato esperado por Prisma
+
+    // Evitar doble envío (común en móvil con doble tap)
+    if (isSubmitting || mutation.isPending) return;
+    setIsSubmitting(true);
+
+    const firstName = formData.firstName.trim();
+    const lastName = formData.lastName.trim();
+    if (!firstName || !lastName) {
+      setError("Nombre y apellido son obligatorios.");
+      setIsSubmitting(false);
+      errorRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      return;
+    }
+
     const data: Omit<Patient, "id" | "createdAt" | "updatedAt"> = {
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      dni: formData.dni || null,
+      firstName,
+      lastName,
+      dni: formData.dni?.trim() || null,
       birthDate: formData.birthDate ? new Date(formData.birthDate) : null,
-      phone: formData.phone || null,
-      email: formData.email || null,
-      address: formData.address || null,
+      phone: formData.phone?.trim() || null,
+      email: formData.email?.trim() || null,
+      address: formData.address?.trim() || null,
       origin: formData.origin,
-      notes: formData.notes || null,
+      notes: formData.notes?.trim() || null,
     };
-    
+
     mutation.mutate(data);
   };
 
@@ -206,7 +227,11 @@ export function PatientDialog({ open, onOpenChange, patient }: PatientDialogProp
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             {error && (
-              <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
+              <div
+                ref={errorRef}
+                className="bg-destructive/10 text-destructive text-sm p-3 rounded-md"
+                role="alert"
+              >
                 {error}
               </div>
             )}
@@ -337,8 +362,12 @@ export function PatientDialog({ open, onOpenChange, patient }: PatientDialogProp
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending
+            <Button
+              type="submit"
+              disabled={isSubmitting || mutation.isPending}
+              className="min-h-[44px] touch-manipulation"
+            >
+              {isSubmitting || mutation.isPending
                 ? "Guardando..."
                 : patient
                 ? "Actualizar"
