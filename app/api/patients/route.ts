@@ -73,6 +73,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  let dniValue: string | null = null;
+  let phoneValue: string | null = null;
+  let emailValue: string | null = null;
+
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
@@ -102,8 +106,11 @@ export async function POST(request: Request) {
     }
 
     // DNI vacío o solo espacios → null (varios pacientes pueden no tener DNI; unique solo aplica a valores no nulos)
-    const dniValue =
-      typeof dni === "string" && dni.trim() !== "" ? dni.trim() : null;
+    dniValue = typeof dni === "string" && dni.trim() !== "" ? dni.trim() : null;
+    if (dniValue === "" || dniValue === undefined) dniValue = null;
+
+    phoneValue = typeof phone === "string" ? phone.trim() || null : null;
+    emailValue = typeof email === "string" ? email.trim() || null : null;
 
     const patient = await prisma.patient.create({
       data: {
@@ -111,8 +118,8 @@ export async function POST(request: Request) {
         lastName: trimmedLast,
         dni: dniValue,
         birthDate: birthDate ? new Date(birthDate) : null,
-        phone: typeof phone === "string" ? phone.trim() || null : null,
-        email: typeof email === "string" ? email.trim() || null : null,
+        phone: phoneValue,
+        email: emailValue,
         address: typeof address === "string" ? address.trim() || null : null,
         origin: origin || "otro",
         notes: typeof notes === "string" ? notes.trim() || null : null,
@@ -124,12 +131,44 @@ export async function POST(request: Request) {
     console.error("Error creating patient:", error);
     if (error.code === "P2002") {
       const target = error.meta?.target as string[] | undefined;
-      const isDniConflict = target?.includes("dni");
+      const targetStr = Array.isArray(target) ? target.join(",") : String(target ?? "");
+      const isDniConflict =
+        target?.includes("dni") || (targetStr && targetStr.toLowerCase().includes("dni"));
+      const isPhoneConflict =
+        target?.includes("phone") || (targetStr && targetStr.toLowerCase().includes("phone"));
+      const isEmailConflict =
+        target?.includes("email") || (targetStr && targetStr.toLowerCase().includes("email"));
+
+      // Buscar el paciente existente que causó el conflicto (usamos los valores que intentamos guardar)
+      let existingPatient: { id: number; firstName: string; lastName: string; dni?: string | null; phone?: string | null; email?: string | null } | null = null;
+      if (dniValue) {
+        existingPatient = await prisma.patient.findFirst({ where: { dni: dniValue }, select: { id: true, firstName: true, lastName: true, dni: true } });
+      } else if (phoneValue) {
+        existingPatient = await prisma.patient.findFirst({ where: { phone: phoneValue }, select: { id: true, firstName: true, lastName: true, phone: true } });
+      } else if (emailValue) {
+        existingPatient = await prisma.patient.findFirst({ where: { email: emailValue }, select: { id: true, firstName: true, lastName: true, email: true } });
+      }
+
+      let errorMessage: string;
+      if (isDniConflict) {
+        errorMessage = "Ya existe un paciente con ese número de DNI.";
+      } else if (isPhoneConflict) {
+        errorMessage = "Ya existe un paciente con ese teléfono.";
+      } else if (isEmailConflict) {
+        errorMessage = "Ya existe un paciente con ese email.";
+      } else {
+        errorMessage = "Ya existe un paciente con algún dato que debe ser único (DNI, teléfono o email).";
+      }
+      if (existingPatient) {
+        const nombre = `${existingPatient.firstName} ${existingPatient.lastName}`.trim();
+        const dato = existingPatient.dni ?? existingPatient.phone ?? existingPatient.email ?? "";
+        errorMessage += dato ? ` Coincide con: ${nombre} (${dato}).` : ` Coincide con: ${nombre}.`;
+      }
+
       return NextResponse.json(
         {
-          error: isDniConflict
-            ? "Ya existe un paciente con ese número de DNI."
-            : "Ya existe un registro con esos datos.",
+          error: errorMessage,
+          existingPatientId: existingPatient?.id ?? null,
         },
         { status: 400 }
       );

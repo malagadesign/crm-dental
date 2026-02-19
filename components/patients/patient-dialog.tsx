@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import Link from "next/link";
 import { Patient, PatientOrigin } from "@prisma/client";
 import { DNIScanner } from "./dni-scanner";
 import { Scan } from "lucide-react";
@@ -37,8 +38,10 @@ async function createPatient(data: Omit<Patient, "id" | "createdAt" | "updatedAt
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || "Error creating patient");
+    const body = await response.json();
+    const err = new Error(body.error || "Error creating patient") as Error & { existingPatientId?: number | null };
+    err.existingPatientId = body.existingPatientId ?? null;
+    throw err;
   }
   return response.json();
 }
@@ -83,6 +86,7 @@ export function PatientDialog({ open, onOpenChange, patient }: PatientDialogProp
     notes: "",
   });
   const [error, setError] = useState("");
+  const [existingPatientId, setExistingPatientId] = useState<number | null>(null);
   const [showDNIScanner, setShowDNIScanner] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
@@ -116,6 +120,7 @@ export function PatientDialog({ open, onOpenChange, patient }: PatientDialogProp
       });
     }
     setError("");
+    setExistingPatientId(null);
     setIsSubmitting(false);
   }, [patient, open]);
 
@@ -141,8 +146,9 @@ export function PatientDialog({ open, onOpenChange, patient }: PatientDialogProp
       setError("");
       setIsSubmitting(false);
     },
-    onError: (error: Error) => {
+    onError: (error: Error & { existingPatientId?: number | null }) => {
       setError(error.message);
+      setExistingPatientId(error.existingPatientId ?? null);
       setIsSubmitting(false);
       errorRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     },
@@ -229,10 +235,21 @@ export function PatientDialog({ open, onOpenChange, patient }: PatientDialogProp
             {error && (
               <div
                 ref={errorRef}
-                className="bg-destructive/10 text-destructive text-sm p-3 rounded-md"
+                className="bg-destructive/10 text-destructive text-sm p-3 rounded-md space-y-2"
                 role="alert"
               >
-                {error}
+                <p>{error}</p>
+                {existingPatientId != null && (
+                  <div className="pt-2 border-t border-destructive/20">
+                    <Link
+                      href={`/dashboard/patients/${existingPatientId}`}
+                      className="text-primary font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded"
+                      onClick={() => onOpenChange(false)}
+                    >
+                      Ver paciente existente →
+                    </Link>
+                  </div>
+                )}
               </div>
             )}
             <div className="grid grid-cols-2 gap-4">
