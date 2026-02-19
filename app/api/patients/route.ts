@@ -96,6 +96,14 @@ export async function POST(request: Request) {
       notes,
     } = body;
 
+    // Debug: qué llega del cliente (solo en desarrollo o para diagnosticar)
+    console.log("[POST /api/patients] body recibido:", {
+      dni: dni,
+      dniType: typeof dni,
+      phone: phone,
+      email: email,
+    });
+
     const trimmedFirst = typeof firstName === "string" ? firstName.trim() : "";
     const trimmedLast = typeof lastName === "string" ? lastName.trim() : "";
     if (!trimmedFirst || !trimmedLast) {
@@ -111,6 +119,14 @@ export async function POST(request: Request) {
 
     phoneValue = typeof phone === "string" ? phone.trim() || null : null;
     emailValue = typeof email === "string" ? email.trim() || null : null;
+
+    console.log("[POST /api/patients] valores a guardar:", {
+      dniValue,
+      phoneValue,
+      emailValue,
+      firstName: trimmedFirst,
+      lastName: trimmedLast,
+    });
 
     const patient = await prisma.patient.create({
       data: {
@@ -128,8 +144,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json(patient, { status: 201 });
   } catch (error: any) {
-    console.error("Error creating patient:", error);
+    console.error("[POST /api/patients] Error:", error?.message, error?.code, error?.meta);
     if (error.code === "P2002") {
+      console.log("[POST /api/patients] P2002 - conflicto unique. meta.target:", error.meta?.target, "| dniValue:", dniValue, "| phoneValue:", phoneValue, "| emailValue:", emailValue);
       const target = error.meta?.target as string[] | undefined;
       const targetStr = Array.isArray(target) ? target.join(",") : String(target ?? "");
       const isDniConflict =
