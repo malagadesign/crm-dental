@@ -71,25 +71,31 @@ export async function PUT(
       notes,
     } = body;
 
-    if (!firstName || !lastName) {
+    const trimmedFirst = typeof firstName === "string" ? firstName.trim() : "";
+    const trimmedLast = typeof lastName === "string" ? lastName.trim() : "";
+    if (!trimmedFirst || !trimmedLast) {
       return NextResponse.json(
-        { error: "First name and last name are required" },
+        { error: "Nombre y apellido son obligatorios" },
         { status: 400 }
       );
     }
 
+    // DNI vacío o solo espacios → null (permite varios pacientes sin DNI; el DNI se puede cargar después)
+    const dniValue =
+      typeof dni === "string" && dni.trim() !== "" ? dni.trim() : null;
+
     const patient = await prisma.patient.update({
       where: { id: parseInt(params.id) },
       data: {
-        firstName,
-        lastName,
-        dni,
+        firstName: trimmedFirst,
+        lastName: trimmedLast,
+        dni: dniValue,
         birthDate: birthDate ? new Date(birthDate) : null,
-        phone,
-        email,
-        address,
+        phone: typeof phone === "string" ? phone.trim() || null : null,
+        email: typeof email === "string" ? email.trim() || null : null,
+        address: typeof address === "string" ? address.trim() || null : null,
         origin: origin || "otro",
-        notes,
+        notes: typeof notes === "string" ? notes.trim() || null : null,
       },
     });
 
@@ -97,8 +103,14 @@ export async function PUT(
   } catch (error: any) {
     console.error("Error updating patient:", error);
     if (error.code === "P2002") {
+      const target = error.meta?.target as string[] | undefined;
+      const isDniConflict = target?.includes("dni");
       return NextResponse.json(
-        { error: "DNI already exists" },
+        {
+          error: isDniConflict
+            ? "Ya existe un paciente con ese número de DNI."
+            : "Ya existe un registro con esos datos.",
+        },
         { status: 400 }
       );
     }

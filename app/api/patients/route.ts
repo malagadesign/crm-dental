@@ -101,11 +101,15 @@ export async function POST(request: Request) {
       );
     }
 
+    // DNI vacío o solo espacios → null (varios pacientes pueden no tener DNI; unique solo aplica a valores no nulos)
+    const dniValue =
+      typeof dni === "string" && dni.trim() !== "" ? dni.trim() : null;
+
     const patient = await prisma.patient.create({
       data: {
         firstName: trimmedFirst,
         lastName: trimmedLast,
-        dni: typeof dni === "string" ? dni.trim() || null : null,
+        dni: dniValue,
         birthDate: birthDate ? new Date(birthDate) : null,
         phone: typeof phone === "string" ? phone.trim() || null : null,
         email: typeof email === "string" ? email.trim() || null : null,
@@ -119,8 +123,14 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error("Error creating patient:", error);
     if (error.code === "P2002") {
+      const target = error.meta?.target as string[] | undefined;
+      const isDniConflict = target?.includes("dni");
       return NextResponse.json(
-        { error: "DNI already exists" },
+        {
+          error: isDniConflict
+            ? "Ya existe un paciente con ese número de DNI."
+            : "Ya existe un registro con esos datos.",
+        },
         { status: 400 }
       );
     }
