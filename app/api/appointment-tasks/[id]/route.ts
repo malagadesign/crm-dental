@@ -47,3 +47,32 @@ export async function PATCH(
   }
 }
 
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const taskId = parseInt(params.id);
+    if (isNaN(taskId)) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+    }
+
+    await prisma.appointmentTask.delete({
+      where: { id: taskId },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting appointment task:", error);
+    return NextResponse.json(
+      { error: "Error deleting appointment task" },
+      { status: 500 }
+    );
+  }
+}
+

@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, Clock, User, Building2, Stethoscope, FileText, Phone, MessageCircle, Search, Check, ChevronDown } from "lucide-react";
+import { Calendar, Clock, User, Building2, Stethoscope, FileText, Phone, MessageCircle, Search, Check, ChevronDown, Trash2 } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -354,6 +354,19 @@ export function AppointmentDetailsDialog({
         throw new Error(error.error || "Error updating task");
       }
       return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments", "calendar"] });
+    },
+  });
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId: number) => {
+      const response = await fetch(`/api/appointment-tasks/${taskId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Error al eliminar el recordatorio");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
@@ -834,15 +847,31 @@ export function AppointmentDetailsDialog({
                         </span>
                       </div>
                       {canManageTasks && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => toggleTaskMutation.mutate(task.id)}
-                        >
-                          {task.done ? "Marcar pendiente" : "Marcar listo"}
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={() => toggleTaskMutation.mutate(task.id)}
+                          >
+                            {task.done ? "Marcar pendiente" : "Marcar listo"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => {
+                              if (confirm("¿Eliminar este recordatorio?")) {
+                                deleteTaskMutation.mutate(task.id);
+                              }
+                            }}
+                            disabled={deleteTaskMutation.isPending}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       )}
                     </li>
                   ))}
