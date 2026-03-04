@@ -27,7 +27,7 @@ import { Calendar, Clock, User, Building2, Stethoscope, FileText, Phone, Message
 import { formatDateTime } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { AppointmentWithRelations, AppointmentStatus, Treatment, User as UserType, Clinic } from "@/types";
+import { AppointmentWithRelations, AppointmentStatus, Treatment, User as UserType, Clinic, UserRole } from "@/types";
 import {
   Popover,
   PopoverContent,
@@ -101,6 +101,12 @@ async function fetchUsers() {
   return response.json();
 }
 
+async function fetchCurrentUser() {
+  const response = await fetch("/api/users/me");
+  if (!response.ok) return null;
+  return response.json() as Promise<{ id: number; name: string; email: string; role: UserRole }>;
+}
+
 async function fetchPatientAppointments(patientId: number) {
   const response = await fetch(`/api/appointments?patientId=${patientId}`);
   if (!response.ok) throw new Error("Error fetching patient appointments");
@@ -159,6 +165,8 @@ export function AppointmentDetailsDialog({
   const [error, setError] = useState("");
   const [patientSearchOpen, setPatientSearchOpen] = useState(false);
   const [patientSearchQuery, setPatientSearchQuery] = useState("");
+  const [newTaskKind, setNewTaskKind] = useState<string>("otro");
+  const [newTaskDescription, setNewTaskDescription] = useState<string>("");
 
   const { data: patientsData } = useQuery({
     queryKey: ["patients", "all"],
@@ -215,6 +223,14 @@ export function AppointmentDetailsDialog({
     queryFn: fetchUsers,
     enabled: isEditing,
   });
+
+  const { data: currentUser } = useQuery({
+    queryKey: ["current-user"],
+    queryFn: fetchCurrentUser,
+  });
+
+  const canManageTasks =
+    currentUser && (currentUser.role === "admin" || currentUser.role === "secretary");
 
   // Cargar historial de turnos del paciente (solo en modo visualización)
   const { data: patientAppointments } = useQuery({
@@ -323,6 +339,25 @@ export function AppointmentDetailsDialog({
     },
     onError: (error: Error) => {
       setError(error.message);
+    },
+  });
+
+  const toggleTaskMutation = useMutation({
+    mutationFn: async (taskId: number) => {
+      const response = await fetch(`/api/appointment-tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || "Error updating task");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments", "calendar"] });
     },
   });
 
@@ -645,7 +680,7 @@ export function AppointmentDetailsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[640px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Detalles del Turno</DialogTitle>
           <DialogDescription>
@@ -653,19 +688,27 @@ export function AppointmentDetailsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Paciente */}
+        <div className="space-y-6 py-4 flex-1 overflow-y-auto pr-1">
+          {/* Paciente + estado */}
           <div className="flex items-start gap-4">
             <div className="p-2 rounded-lg bg-primary/10">
               <User className="h-5 w-5 text-primary" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-muted-foreground mb-2">
-                Paciente
-              </p>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <p className="text-sm font-medium text-muted-foreground">
+                  Paciente
+                </p>
+                <Badge
+                  variant="outline"
+                  className={getStatusColor(appointment.status)}
+                >
+                  {getStatusLabel(appointment.status)}
+                </Badge>
+              </div>
               <Link
                 href={`/dashboard/patients/${appointment.patient.id}`}
-                className="text-lg font-semibold hover:text-primary transition-colors block mb-3"
+                className="text-lg font-semibold hover:text-primary transition-colors block mb-2"
               >
                 {appointment.patient.firstName} {appointment.patient.lastName}
               </Link>
@@ -729,25 +772,158 @@ export function AppointmentDetailsDialog({
             </div>
           </div>
 
-          {/* Consultorio */}
+          {/* Consultorio + Odontólogo */}
           <div className="flex items-start gap-4">
             <div className="p-2 rounded-lg bg-primary/10">
               <Building2 className="h-5 w-5 text-primary" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-muted-foreground mb-1">
-                Consultorio
-              </p>
-              <p className="text-base font-medium">
-                {appointment.clinic.name}
-              </p>
-              {appointment.clinic.address && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  {appointment.clinic.address}
-                </p>
-              )}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">
+                    Consultorio
+                  </p>
+                  <p className="text-base font-medium">
+                    {appointment.clinic.name}
+                  </p>
+                  {appointment.clinic.address && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {appointment.clinic.address}
+                    </p>
+                  )}
+                </div>
+
+                {appointment.user && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">
+                      Odontólogo
+                    </p>
+                    <p className="text-base font-medium">
+                      {appointment.user.name}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
+
+          {/* Recordatorios del turno */}
+          {(appointment.tasks && appointment.tasks.length > 0) && (
+            <div className="flex items-start gap-4">
+              <div className="p-2 rounded-lg bg-yellow-400/10">
+                <Clock className="h-5 w-5 text-yellow-500" />
+              </div>
+              <div className="flex-1 space-y-3">
+                <p className="text-sm font-medium text-muted-foreground">
+                  Recordatorios del turno
+                </p>
+                <ul className="space-y-1 text-sm">
+                  {appointment.tasks.map((task) => (
+                    <li
+                      key={task.id}
+                      className="flex items-start justify-between gap-2"
+                    >
+                      <div className="flex items-start gap-2">
+                        <span
+                          className={`mt-0.5 h-2 w-2 rounded-full ${
+                            task.done ? "bg-emerald-500" : "bg-yellow-400"
+                          }`}
+                        />
+                        <span className={task.done ? "line-through text-muted-foreground" : ""}>
+                          {task.description || task.kind}
+                        </span>
+                      </div>
+                      {canManageTasks && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => toggleTaskMutation.mutate(task.id)}
+                        >
+                          {task.done ? "Marcar pendiente" : "Marcar listo"}
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Crear nuevo recordatorio */}
+          {canManageTasks && appointment && (
+            <div className="flex items-start gap-4">
+              <div className="p-2 rounded-lg bg-yellow-400/10">
+                <Clock className="h-5 w-5 text-yellow-500" />
+              </div>
+              <div className="flex-1 space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">
+                  Agregar recordatorio
+                </p>
+                <div className="grid gap-2 sm:grid-cols-[minmax(0,0.4fr)_minmax(0,1.6fr)]">
+                  <Select
+                    value={newTaskKind}
+                    onValueChange={setNewTaskKind}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cirugia_prep">Preparar cirugía</SelectItem>
+                      <SelectItem value="lab_trabajo">
+                        Trabajo de laboratorio
+                      </SelectItem>
+                      <SelectItem value="otro">Otro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Ej: Tener listo el box y material de cirugía"
+                      value={newTaskDescription}
+                      onChange={(e) => setNewTaskDescription(e.target.value)}
+                      className="h-9"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-9"
+                      disabled={
+                        !newTaskDescription.trim() || toggleTaskMutation.isPending
+                      }
+                      onClick={async () => {
+                        if (!appointment || !newTaskDescription.trim()) return;
+                        try {
+                          const response = await fetch("/api/appointment-tasks", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              appointmentId: appointment.id,
+                              kind: newTaskKind,
+                              description: newTaskDescription.trim(),
+                            }),
+                          });
+                          if (!response.ok) {
+                            const error = await response.json().catch(() => ({}));
+                            throw new Error(error.error || "Error creando recordatorio");
+                          }
+                          setNewTaskDescription("");
+                          queryClient.invalidateQueries({ queryKey: ["appointments"] });
+                          queryClient.invalidateQueries({
+                            queryKey: ["appointments", "calendar"],
+                          });
+                        } catch (e) {
+                          console.error(e);
+                        }
+                      }}
+                    >
+                      Agregar
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Tratamiento */}
           {appointment.treatment && (
@@ -770,22 +946,6 @@ export function AppointmentDetailsDialog({
               </div>
             </div>
           )}
-
-          {/* Odontólogo */}
-          {appointment.user && (
-            <div className="flex items-start gap-4">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <User className="h-5 w-5 text-primary" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-muted-foreground mb-1">
-                  Odontólogo
-                </p>
-                <p className="text-base font-medium">{appointment.user.name}</p>
-              </div>
-            </div>
-          )}
-
 
           {/* Notas */}
           {appointment.notes && (
@@ -866,20 +1026,6 @@ export function AppointmentDetailsDialog({
             </div>
           )}
 
-          {/* Estado */}
-          <div className="pt-4 border-t">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-muted-foreground">
-                Estado del Turno
-              </p>
-              <Badge
-                variant="outline"
-                className={getStatusColor(appointment.status)}
-              >
-                {getStatusLabel(appointment.status)}
-              </Badge>
-            </div>
-          </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-4 border-t">

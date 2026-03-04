@@ -233,6 +233,21 @@
   padding: 0.5rem !important;
 }
 
+/* Indicador de recordatorios pendientes en eventos del calendario */
+.fc-event.has-appointment-task {
+  position: relative;
+}
+
+.fc-event.has-appointment-task::before {
+  content: "";
+  position: absolute;
+  inset-block: 2px;
+  left: 0;
+  width: 4px;
+  border-radius: 9999px;
+  background-color: #facc15; /* amarillo recordatorio */
+}
+
 .fc-popover .fc-event {
   padding: 0.25rem 0.5rem !important;
   margin: 0.25rem 0 !important;

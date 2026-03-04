@@ -150,6 +150,7 @@ export default function CalendarPage() {
     }
     
     const clinicColor = getClinicColor(apt.clinic?.name);
+    const hasPendingTasks = apt.tasks?.some((t) => !t.done) ?? false;
 
     return {
       id: apt.id.toString(),
@@ -160,6 +161,7 @@ export default function CalendarPage() {
       backgroundColor: clinicColor,
       borderColor: clinicColor,
       display: "block", // Mostrar como bloque en vistas de tiempo
+      classNames: hasPendingTasks ? ["has-appointment-task"] : [],
       extendedProps: {
         patient: apt.patient,
         clinic: apt.clinic,

@@ -141,9 +141,27 @@ model Appointment {
   user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
   medicalRecords MedicalRecord[]
   toothEvents   ToothEvent[]
+  tasks         AppointmentTask[]
 
   @@index([userId, datetimeStart, datetimeEnd])
   @@map("appointments")
+}
+
+model AppointmentTask {
+  id               Int      @id @default(autoincrement())
+  appointmentId    Int      @map("appointment_id")
+  kind             String   // ej: cirugia_prep, lab_trabajo, otro
+  description      String?
+  dueOffsetMinutes Int?     @map("due_offset_minutes") // minutos antes del turno
+  done             Boolean  @default(false)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([appointmentId])
+  @@map("appointment_tasks")
 }
 
 model MedicalRecord {

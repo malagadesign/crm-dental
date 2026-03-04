@@ -51,6 +51,7 @@ export async function GET(request: Request) {
         clinic: true,
         treatment: true,
         user: true,
+        tasks: true,
       },
       orderBy: { datetimeStart: "asc" },
     });

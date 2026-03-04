@@ -10,6 +10,7 @@ import {
   PatientOrigin,
   LeadOrigin,
   LeadStatus,
+  AppointmentTask,
 } from "@prisma/client";
 
 export type {
@@ -24,6 +25,7 @@ export type {
   PatientOrigin,
   LeadOrigin,
   LeadStatus,
+  AppointmentTask,
 };
 
 // User.role es string en Laravel, no enum
@@ -34,6 +36,7 @@ export interface AppointmentWithRelations extends Appointment {
   clinic: Clinic;
   treatment: Treatment | null;
   user: User | null;
+  tasks: AppointmentTask[];
 }
 
 export interface PatientWithRelations extends Patient {
