@@ -234,15 +234,13 @@
 }
 
 .fc-popover .fc-event {
-  background-color: hsl(var(--primary)) !important;
-  border-color: hsl(var(--primary)) !important;
-  color: hsl(var(--primary-foreground)) !important;
   padding: 0.25rem 0.5rem !important;
   margin: 0.25rem 0 !important;
   border-radius: 4px !important;
 }
 
-.fc-popover .fc-event-title {
+.fc-popover .fc-event-title,
+.fc-popover .fc-event-time {
   color: hsl(var(--primary-foreground)) !important;
 }
 
